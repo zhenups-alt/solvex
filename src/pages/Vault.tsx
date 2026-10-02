@@ -47,6 +47,7 @@ export default function VaultPage() {
   const [programDeployed, setProgramDeployed] = useState(false);
   const [vaultState, setVaultState] = useState<VaultOnChainState | null>(null);
   const [market, setMarket] = useState<SolMarketDataResponse | null>(null);
+  const [marketUnavailable, setMarketUnavailable] = useState(false);
   const [depositAmount, setDepositAmount] = useState('0.1');
   const [withdrawAmount, setWithdrawAmount] = useState('0.1');
   const [working, setWorking] = useState<WorkingAction>('refresh');
@@ -71,6 +72,7 @@ export default function VaultPage() {
       ]);
       setProgramDeployed(Boolean(program?.executable));
       setMarket(nextMarket);
+      setMarketUnavailable(!nextMarket);
       setVaultState(nextVault);
     } catch (error) {
       toast.error(tr('Could not refresh vault state', 'Не удалось обновить состояние хранилища'), {
@@ -283,6 +285,15 @@ export default function VaultPage() {
               {!vaultState ? (
                 <div className="space-y-3 border-t border-border-subtle pt-5">
                   <p className="text-xs leading-relaxed text-text-secondary">{tr('The USD limits will be converted into fixed on-chain SOL/USDC atomic limits using the displayed SOL price.', 'Долларовые лимиты будут преобразованы в фиксированные ончейн-лимиты SOL/USDC по указанной цене SOL.')}</p>
+                  {marketUnavailable && (
+                    <div className="flex flex-wrap items-center gap-3 rounded-md border border-warning/30 bg-warning-dim/20 p-3 text-xs text-text-secondary">
+                      <span>{tr('The SOL quote could not be loaded. Retry before creating the vault.', 'Не удалось загрузить цену SOL. Повторите запрос перед созданием Vault.')}</span>
+                      <Button variant="outline" size="sm" className="gap-2" disabled={working !== null} onClick={() => void refresh()}>
+                        <RefreshCw size={13} className={working === 'refresh' ? 'animate-spin' : ''} />
+                        {tr('Retry quote', 'Повторить запрос')}
+                      </Button>
+                    </div>
+                  )}
                   <Button className="gap-2" disabled={!programDeployed || !market || working !== null} onClick={() => void createVault()}>
                     {working === 'create' ? <LoaderCircle size={16} className="animate-spin" /> : <Plus size={16} />}
                     {tr('Create and activate Vault', 'Создать и активировать Vault')}
