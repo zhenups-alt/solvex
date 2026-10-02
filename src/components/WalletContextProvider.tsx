@@ -8,6 +8,7 @@
 import React, { FC, ReactNode, createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Connection, PublicKey, SystemProgram, Transaction, clusterApiUrl, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { toast } from 'sonner';
+import { useLanguage } from '../i18n';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,7 @@ function getPhantom(): any {
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
+  const { tr } = useLanguage();
   const [network, setNetworkState] = useState<SolanaNetwork>('devnet');
   const [connection, setConnection] = useState<Connection>(
     new Connection(clusterApiUrl('devnet'), 'confirmed')
@@ -153,10 +155,10 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
     const phantom = getPhantom();
 
     if (!phantom) {
-      toast.error('Phantom not installed', {
-        description: 'Please install Phantom wallet to continue.',
+      toast.error(tr('Phantom not installed', 'Phantom не установлен'), {
+        description: tr('Please install Phantom wallet to continue.', 'Установите кошелёк Phantom, чтобы продолжить.'),
         action: {
-          label: 'Install',
+          label: tr('Install', 'Установить'),
           onClick: () => window.open('https://phantom.app', '_blank'),
         },
       });
@@ -171,19 +173,19 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
       setPublicKey(pk);
       setConnected(true);
       console.log('[Wallet] Connected! Address:', pk.toBase58());
-      toast.success('Wallet connected!', { description: pk.toBase58().slice(0, 8) + '...' });
+      toast.success(tr('Wallet connected!', 'Кошелёк подключён!'), { description: pk.toBase58().slice(0, 8) + '...' });
       await fetchBalance(pk, connection);
     } catch (err: any) {
       console.error('[Wallet] Connect error:', err);
       if (err.code === 4001) {
-        toast.error('Connection cancelled', { description: 'You rejected the connection in Phantom.' });
+        toast.error(tr('Connection cancelled', 'Подключение отменено'), { description: tr('You rejected the connection in Phantom.', 'Вы отклонили подключение в Phantom.') });
       } else {
-        toast.error('Connection failed', { description: err.message || 'Unknown error' });
+        toast.error(tr('Connection failed', 'Ошибка подключения'), { description: err.message || tr('Unknown error', 'Неизвестная ошибка') });
       }
     } finally {
       setConnecting(false);
     }
-  }, [connection, fetchBalance]);
+  }, [connection, fetchBalance, tr]);
 
   // ─── Disconnect ────────────────────────────────────────────────────────────
 
@@ -199,16 +201,16 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
     setPublicKey(null);
     setConnected(false);
     setBalance(null);
-    toast('Wallet disconnected');
+    toast(tr('Wallet disconnected', 'Кошелёк отключён'));
     console.log('[Wallet] Disconnected.');
-  }, []);
+  }, [tr]);
 
   // ─── Sign message ──────────────────────────────────────────────────────────
 
   const signMessage = useCallback(async (message: string): Promise<string | null> => {
     const phantom = getPhantom();
     if (!phantom || !connected) {
-      toast.error('Wallet not connected');
+      toast.error(tr('Wallet not connected', 'Кошелёк не подключён'));
       return null;
     }
 
@@ -223,20 +225,20 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
     } catch (err: any) {
       console.error('[Wallet] Sign error:', err);
       if (err.code === 4001) {
-        toast.error('Signature rejected', { description: 'You rejected the signing request.' });
+        toast.error(tr('Signature rejected', 'Подпись отклонена'), { description: tr('You rejected the signing request.', 'Вы отклонили запрос подписи.') });
       } else {
-        toast.error('Sign failed', { description: err.message });
+        toast.error(tr('Sign failed', 'Ошибка подписи'), { description: err.message });
       }
       return null;
     }
-  }, [connected]);
+  }, [connected, tr]);
 
   // ─── Send SOL ──────────────────────────────────────────────────────────────
 
   const sendSol = useCallback(async (recipient: string, amountSol: number): Promise<string | null> => {
     const phantom = getPhantom();
     if (!phantom || !publicKey) {
-      toast.error('Wallet not connected');
+      toast.error(tr('Wallet not connected', 'Кошелёк не подключён'));
       return null;
     }
 
@@ -263,9 +265,9 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
       toast.promise(
         connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }),
         {
-          loading: 'Confirming transaction...',
-          success: `Confirmed! Sig: ${signature.slice(0, 8)}...`,
-          error: 'Transaction failed to confirm',
+          loading: tr('Confirming transaction...', 'Подтверждение транзакции...'),
+          success: tr(`Confirmed! Sig: ${signature.slice(0, 8)}...`, `Подтверждено! Подпись: ${signature.slice(0, 8)}...`),
+          error: tr('Transaction failed to confirm', 'Не удалось подтвердить транзакцию'),
         }
       );
 
@@ -275,15 +277,15 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
     } catch (err: any) {
       console.error('[Wallet] Send error:', err);
       if (err.code === 4001) {
-        toast.error('Transaction rejected', { description: 'You rejected the transaction.' });
+        toast.error(tr('Transaction rejected', 'Транзакция отклонена'), { description: tr('You rejected the transaction.', 'Вы отклонили транзакцию.') });
       } else if (err.message?.includes('Invalid public key')) {
-        toast.error('Invalid recipient address');
+        toast.error(tr('Invalid recipient address', 'Некорректный адрес получателя'));
       } else {
-        toast.error('Network error', { description: err.message || 'Please try again.' });
+        toast.error(tr('Network error', 'Ошибка сети'), { description: err.message || tr('Please try again.', 'Попробуйте ещё раз.') });
       }
       return null;
     }
-  }, [publicKey, connection, fetchBalance]);
+  }, [publicKey, connection, fetchBalance, tr]);
 
   return (
     <WalletContext.Provider value={{

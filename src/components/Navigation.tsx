@@ -22,24 +22,26 @@ import { cn, truncateAddress } from '../lib/utils';
 import { Button } from './UI';
 import { usePhantom } from './WalletContextProvider';
 import { toast } from 'sonner';
+import { useLanguage } from '../i18n';
 
 export const TopNav = () => {
   const { address, connected, connecting, connect, disconnect, network } = usePhantom();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const { language, setLanguage, tr } = useLanguage();
 
   const copyAddress = async () => {
     if (!address) return;
     await navigator.clipboard.writeText(address);
-    toast.success('Wallet address copied');
+    toast.success(tr('Wallet address copied', 'Адрес кошелька скопирован'));
   };
 
   const navLinks = [
-    { name: 'Home', path: '/' },
-    { name: 'Dashboard', path: '/dashboard' },
-    { name: 'Vault', path: '/vault' },
-    { name: 'Decisions', path: '/decisions' },
-    { name: 'Docs', path: '/docs' },
+    { name: tr('Home', 'Главная'), path: '/' },
+    { name: tr('Dashboard', 'Панель'), path: '/dashboard' },
+    { name: tr('Vault', 'Хранилище'), path: '/vault' },
+    { name: tr('Decisions', 'Решения'), path: '/decisions' },
+    { name: tr('Docs', 'Документация'), path: '/docs' },
   ];
 
   return (
@@ -84,8 +86,22 @@ export const TopNav = () => {
 
         {/* Tools and Connect */}
         <div className="flex items-center gap-2 pr-1">
-
-
+          <div className="flex rounded-lg border border-white/10 bg-white/5 p-0.5" aria-label={tr('Language', 'Язык')}>
+            {(['ru', 'en'] as const).map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setLanguage(item)}
+                className={cn(
+                  'rounded-md px-2 py-1.5 text-[11px] font-bold transition-colors',
+                  language === item ? 'bg-accent text-bg-base' : 'text-text-muted hover:text-white',
+                )}
+                aria-pressed={language === item}
+              >
+                {item.toUpperCase()}
+              </button>
+            ))}
+          </div>
           {connected && address ? (
             <div className="relative group">
               <Button variant="secondary" size="sm" className="h-9 px-4 gap-2 bg-white/5 border-white/10 hover:bg-white/10 rounded-xl">
@@ -95,7 +111,7 @@ export const TopNav = () => {
               </Button>
               <div className="absolute right-0 top-[calc(100%+8px)] w-60 bg-bg-elevated/95 backdrop-blur-2xl border border-white/10 rounded-xl shadow-[0_16px_32px_-8px_rgba(0,0,0,0.5)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 p-2 z-[60] origin-top">
                 <div className="p-3 border-b border-white/5 mb-2">
-                  <div className="text-[10px] text-text-muted uppercase tracking-widest font-bold mb-2">Connected Wallet</div>
+                  <div className="text-[10px] text-text-muted uppercase tracking-widest font-bold mb-2">{tr('Connected Wallet', 'Подключённый кошелёк')}</div>
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-[13px] text-text-primary">{truncateAddress(address)}</span>
                     <div className="flex gap-1">
@@ -109,13 +125,13 @@ export const TopNav = () => {
                   className="w-full flex items-center justify-center gap-2 p-2.5 text-[13px] font-semibold text-negative hover:bg-negative/10 rounded-lg transition-colors"
                 >
                   <LogOut size={14} />
-                  Disconnect
+                  {tr('Disconnect', 'Отключить')}
                 </button>
               </div>
             </div>
           ) : (
             <Button size="sm" disabled={connecting} className="h-9 px-5 rounded-xl text-[13px] font-medium shadow-[0_0_20px_-8px_rgba(var(--color-accent),0.5)]" onClick={connect}>
-              {connecting ? 'Connecting…' : 'Connect wallet'}
+              {connecting ? tr('Connecting…', 'Подключение…') : tr('Connect wallet', 'Подключить кошелёк')}
             </Button>
           )}
 
@@ -160,34 +176,35 @@ export const TopNav = () => {
 
 export const Sidebar = () => {
   const location = useLocation();
+  const { tr } = useLanguage();
   
   const sections = [
     {
-      label: 'Overview',
+      label: tr('Overview', 'Обзор'),
       items: [
-        { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-        { name: 'Analytics', path: '/analytics', icon: BarChart3 },
+        { name: tr('Dashboard', 'Панель'), path: '/dashboard', icon: LayoutDashboard },
+        { name: tr('Analytics', 'Аналитика'), path: '/analytics', icon: BarChart3 },
       ]
     },
     {
-      label: 'My Vault',
+      label: tr('My Vault', 'Моё хранилище'),
       items: [
-        { name: 'Vault', path: '/vault', icon: Wallet },
-        { name: 'Activity', path: '/vault#manage', icon: Activity },
+        { name: tr('Vault', 'Хранилище'), path: '/vault', icon: Wallet },
+        { name: tr('Activity', 'Активность'), path: '/vault#manage', icon: Activity },
       ]
     },
     {
-      label: 'AI Agent',
+      label: tr('AI Agent', 'ИИ-агент'),
       items: [
-        { name: 'Config', path: '/agent-config', icon: Settings2 },
-        { name: 'Log', path: '/decisions', icon: FileText },
+        { name: tr('Agent limits', 'Лимиты агента'), path: '/agent-config?section=risk', icon: Settings2 },
+        { name: tr('Decision log', 'Журнал решений'), path: '/decisions', icon: FileText },
       ]
     },
     {
-      label: 'System',
+      label: tr('System', 'Система'),
       items: [
-        { name: 'Architecture', path: '/architecture', icon: Cpu },
-        { name: 'Docs', path: '/docs', icon: BookOpen },
+        { name: tr('Architecture', 'Архитектура'), path: '/architecture', icon: Cpu },
+        { name: tr('Docs', 'Документация'), path: '/docs', icon: BookOpen },
       ]
     }
   ];
@@ -202,7 +219,7 @@ export const Sidebar = () => {
             </div>
             <div className="space-y-1">
               {section.items.map((item) => {
-                const isActive = location.pathname === item.path;
+                const isActive = location.pathname === item.path.split('?')[0].split('#')[0];
                 return (
                   <Link
                     key={item.name}
@@ -228,23 +245,23 @@ export const Sidebar = () => {
       <div className="p-4 border-t border-white/5">
         <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <div className="text-[11px] font-bold text-text-primary uppercase tracking-wider">Execution Status</div>
+            <div className="text-[11px] font-bold text-text-primary uppercase tracking-wider">{tr('Execution Status', 'Статус исполнения')}</div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-warning" />
-              <span className="text-[10px] text-warning font-mono font-bold uppercase">Locked</span>
+              <span className="text-[10px] text-warning font-mono font-bold uppercase">{tr('Locked', 'Заблокировано')}</span>
             </div>
           </div>
           <div className="space-y-2">
             <div className="flex justify-between text-[11px]">
-              <span className="text-text-muted">Mode:</span>
-              <span className="text-text-secondary font-mono">Simulation</span>
+              <span className="text-text-muted">{tr('Mode:', 'Режим:')}</span>
+              <span className="text-text-secondary font-mono">{tr('Simulation', 'Симуляция')}</span>
             </div>
             <div className="flex justify-between text-[11px]">
-              <span className="text-text-muted">Model:</span>
+              <span className="text-text-muted">{tr('Model:', 'Модель:')}</span>
               <span className="text-text-secondary">Gemini Flash-Lite</span>
             </div>
           </div>
-          <Button disabled variant="outline" size="sm" className="w-full h-8 text-[11px] font-bold border-positive/20 text-positive">Program live · swaps locked</Button>
+          <Button disabled variant="outline" size="sm" className="w-full h-8 text-[11px] font-bold border-positive/20 text-positive">{tr('Program live · swaps locked', 'Программа запущена · обмены закрыты')}</Button>
         </div>
       </div>
     </aside>

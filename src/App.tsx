@@ -8,6 +8,7 @@ import {
 import { Toaster } from 'sonner';
 import { TopNav, Sidebar } from './components/Navigation';
 import { cn } from './lib/utils';
+import { useLanguage } from './i18n';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -51,10 +52,11 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 };
 
 export default function App() {
+  const { tr } = useLanguage();
   return (
     <Router>
       <Layout>
-        <Suspense fallback={<div className="p-8 text-sm text-text-muted">Loading Solvex…</div>}>
+        <Suspense fallback={<div className="p-8 text-sm text-text-muted">{tr('Loading Solvex…', 'Загрузка Solvex…')}</div>}>
           <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/dashboard" element={<Dashboard />} />

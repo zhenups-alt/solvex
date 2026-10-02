@@ -5,6 +5,7 @@ import { Badge, Button, Card } from '../components/UI';
 import { usePhantom } from '../components/WalletContextProvider';
 import { DecisionLogResponse, getDecisionLogs } from '../lib/solvexApi';
 import { cn } from '../lib/utils';
+import { localizeCode, useLanguage } from '../i18n';
 
 const statusTone = (status: string) => {
   if (status === 'executed' || status === 'ready_for_execution') return 'text-positive';
@@ -14,6 +15,7 @@ const statusTone = (status: string) => {
 
 export default function DecisionLogPage() {
   const { address } = usePhantom();
+  const { language, locale, tr } = useLanguage();
   const [items, setItems] = useState<DecisionLogResponse[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -31,7 +33,7 @@ export default function DecisionLogPage() {
       const response = await getDecisionLogs(address);
       setItems(response.items);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Could not load decisions');
+      setError(loadError instanceof Error ? loadError.message : tr('Could not load decisions', 'Не удалось загрузить решения'));
     } finally {
       setLoading(false);
     }
@@ -86,10 +88,10 @@ export default function DecisionLogPage() {
   };
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-8">
       <header>
-        <h1 className="text-2xl font-bold text-text-primary">Decision Log</h1>
-        <p className="text-text-secondary mt-1">Every proposal, policy check, simulation, and execution result in one audit trail.</p>
+        <h1 className="text-2xl font-bold text-text-primary">{tr('Decision Log', 'Журнал решений')}</h1>
+        <p className="text-text-secondary mt-1">{tr('Every proposal, policy check, simulation, and execution result in one audit trail.', 'Все предложения, проверки политик, симуляции и результаты исполнения собраны в едином журнале аудита.')}</p>
       </header>
 
       <div className="flex flex-wrap gap-4 items-center justify-between">
@@ -98,16 +100,16 @@ export default function DecisionLogPage() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search rationale, asset, status, or decision ID..."
+            placeholder={tr('Search rationale, asset, status, or decision ID...', 'Поиск по обоснованию, активу, статусу или ID...')}
             className="w-full h-10 bg-bg-elevated border border-border-default rounded-md pl-10 pr-4 text-sm focus:outline-none focus:border-accent"
           />
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="gap-2" disabled={!address || loading} onClick={() => void load()}>
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Refresh
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> {tr('Refresh', 'Обновить')}
           </Button>
           <Button variant="outline" className="gap-2" disabled={!filtered.length} onClick={exportCsv}>
-            <Download size={16} /> Export CSV
+            <Download size={16} /> {tr('Export CSV', 'Экспорт CSV')}
           </Button>
         </div>
       </div>
@@ -116,15 +118,15 @@ export default function DecisionLogPage() {
         <div className="flex items-start gap-4">
           <div className="w-8 h-8 rounded-full bg-accent-dim flex items-center justify-center text-accent shrink-0"><Info size={18} /></div>
           <div>
-            <h3 className="text-sm font-semibold text-text-primary">Fail-closed audit trail</h3>
+            <h3 className="text-sm font-semibold text-text-primary">{tr('Fail-closed audit trail', 'Журнал с запретом при неопределённости')}</h3>
             <p className="text-xs text-text-secondary leading-relaxed mt-2">
-              Review and Blocked outcomes never reach execution. Transaction data appears only after a successful simulation and confirmed Solana transaction.
+              {tr('Review and Blocked outcomes never reach execution. Transaction data appears only after a successful simulation and confirmed Solana transaction.', 'Результаты Review и Blocked никогда не доходят до исполнения. Данные транзакции появляются только после успешной симуляции и подтверждения в Solana.')}
             </p>
           </div>
         </div>
       </Card>
 
-      {!address && <Card className="p-8 text-center text-sm text-text-secondary">Connect Phantom to load the decision log bound to your wallet.</Card>}
+      {!address && <Card className="p-8 text-center text-sm text-text-secondary">{tr('Connect Phantom to load the decision log bound to your wallet.', 'Подключите Phantom, чтобы загрузить журнал решений вашего кошелька.')}</Card>}
       {error && <Card className="p-6 border-negative/40 text-sm text-negative">{error}</Card>}
 
       {address && !error && (
@@ -133,18 +135,18 @@ export default function DecisionLogPage() {
             <table className="w-full text-left">
               <thead>
                 <tr className="text-[11px] text-text-muted uppercase tracking-wider border-b border-border-subtle">
-                  <th className="px-6 py-4 font-medium">Time</th>
-                  <th className="px-6 py-4 font-medium">Action</th>
-                  <th className="px-6 py-4 font-medium">Pair</th>
-                  <th className="px-6 py-4 font-medium">Amount</th>
-                  <th className="px-6 py-4 font-medium">Shariah</th>
-                  <th className="px-6 py-4 font-medium">Risk</th>
-                  <th className="px-6 py-4 font-medium">Status</th>
+                  <th className="px-6 py-4 font-medium">{tr('Time', 'Время')}</th>
+                  <th className="px-6 py-4 font-medium">{tr('Action', 'Действие')}</th>
+                  <th className="px-6 py-4 font-medium">{tr('Pair', 'Пара')}</th>
+                  <th className="px-6 py-4 font-medium">{tr('Amount', 'Сумма')}</th>
+                  <th className="px-6 py-4 font-medium">{tr('Shariah', 'Шариат')}</th>
+                  <th className="px-6 py-4 font-medium">{tr('Risk', 'Риск')}</th>
+                  <th className="px-6 py-4 font-medium">{tr('Status', 'Статус')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle">
                 {!loading && filtered.length === 0 && (
-                  <tr><td colSpan={7} className="px-6 py-12 text-center text-sm text-text-muted">No recorded decisions for this wallet.</td></tr>
+                  <tr><td colSpan={7} className="px-6 py-12 text-center text-sm text-text-muted">{tr('No recorded decisions for this wallet.', 'Для этого кошелька пока нет записанных решений.')}</td></tr>
                 )}
                 {filtered.map((row) => (
                   <React.Fragment key={row.id}>
@@ -152,32 +154,32 @@ export default function DecisionLogPage() {
                       onClick={() => setExpandedId(expandedId === row.id ? null : row.id)}
                       className={cn('text-sm hover:bg-bg-subtle transition-colors cursor-pointer', expandedId === row.id && 'bg-bg-subtle')}
                     >
-                      <td className="px-6 py-4 text-text-secondary">{new Date(row.created_at).toLocaleString()}</td>
-                      <td className="px-6 py-4 uppercase text-xs font-bold">{row.proposal.action}</td>
+                      <td className="px-6 py-4 text-text-secondary">{new Date(row.created_at).toLocaleString(locale)}</td>
+                      <td className="px-6 py-4 uppercase text-xs font-bold">{localizeCode(row.proposal.action, language)}</td>
                       <td className="px-6 py-4 font-mono">{row.proposal.input_asset || '—'} → {row.proposal.output_asset || '—'}</td>
                       <td className="px-6 py-4 font-mono">${Number(row.proposal.amount_usd).toLocaleString()}</td>
-                      <td className="px-6 py-4"><Badge>{row.shariah.status}</Badge></td>
-                      <td className="px-6 py-4"><Badge>{row.risk.status}</Badge></td>
-                      <td className={cn('px-6 py-4 text-xs font-bold uppercase', statusTone(row.status))}>{row.status.replaceAll('_', ' ')}</td>
+                      <td className="px-6 py-4"><Badge>{localizeCode(row.shariah.status, language)}</Badge></td>
+                      <td className="px-6 py-4"><Badge>{localizeCode(row.risk.status, language)}</Badge></td>
+                      <td className={cn('px-6 py-4 text-xs font-bold uppercase', statusTone(row.status))}>{localizeCode(row.status, language)}</td>
                     </tr>
                     {expandedId === row.id && (
                       <tr>
                         <td colSpan={7} className="px-6 py-8 bg-bg-subtle/50 border-y border-border-subtle">
                           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                             <section>
-                              <h4 className="text-[11px] uppercase tracking-wider text-text-muted font-semibold mb-3">AI proposal</h4>
+                              <h4 className="text-[11px] uppercase tracking-wider text-text-muted font-semibold mb-3">{tr('AI proposal', 'Предложение ИИ')}</h4>
                               <p className="text-sm text-text-secondary leading-relaxed">{row.proposal.rationale}</p>
                               <div className="flex flex-wrap gap-2 mt-4">{row.proposal.key_signals.map((signal) => <Badge key={signal}>{signal}</Badge>)}</div>
                             </section>
-                            <CheckList title={`Shariah · ${row.shariah.methodology_version}`} checks={row.shariah.checks} />
-                            <CheckList title={`Risk · ${row.risk.methodology_version}`} checks={row.risk.checks} />
+                            <CheckList title={`${tr('Shariah', 'Шариат')} · ${row.shariah.methodology_version}`} checks={row.shariah.checks} />
+                            <CheckList title={`${tr('Risk', 'Риск')} · ${row.risk.methodology_version}`} checks={row.risk.checks} />
                           </div>
                           <button
                             className="mt-6 flex items-center gap-2 text-xs font-mono text-text-muted hover:text-accent"
                             onClick={(event) => {
                               event.stopPropagation();
                               void navigator.clipboard.writeText(row.id);
-                              toast.success('Decision ID copied');
+                              toast.success(tr('Decision ID copied', 'ID решения скопирован'));
                             }}
                           >
                             <Copy size={13} /> {row.id}
@@ -197,13 +199,14 @@ export default function DecisionLogPage() {
 }
 
 function CheckList({ title, checks }: { title: string; checks: DecisionLogResponse['risk']['checks'] }) {
+  const { language } = useLanguage();
   return (
     <section>
       <h4 className="text-[11px] uppercase tracking-wider text-text-muted font-semibold mb-3">{title}</h4>
       <div className="space-y-3">
         {checks.map((check) => (
           <div key={check.code} className="rounded border border-border-subtle bg-bg-base p-3">
-            <div className="flex justify-between gap-3 text-xs"><span className="font-mono">{check.code}</span><span className={statusTone(check.outcome === 'fail' ? 'blocked' : check.outcome)}>{check.outcome}</span></div>
+            <div className="flex justify-between gap-3 text-xs"><span className="font-mono">{check.code}</span><span className={statusTone(check.outcome === 'fail' ? 'blocked' : check.outcome)}>{localizeCode(check.outcome, language)}</span></div>
             <p className="text-xs text-text-secondary mt-2">{check.message}</p>
           </div>
         ))}

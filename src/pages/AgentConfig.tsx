@@ -18,12 +18,16 @@ import { cn } from '../lib/utils';
 import { usePhantom } from '../components/WalletContextProvider';
 import { getRiskProfile, saveRiskProfile } from '../lib/solvexApi';
 import { toast } from 'sonner';
+import { useSearchParams } from 'react-router-dom';
+import { useLanguage } from '../i18n';
 
 export default function AgentConfigPage() {
-  const [activeSection, setActiveSection] = useState('strategy');
+  const [searchParams] = useSearchParams();
+  const [activeSection, setActiveSection] = useState(searchParams.get('section') || 'risk');
   const [saving, setSaving] = useState(false);
   const { config, updateConfig } = useStore();
   const { address } = usePhantom();
+  const { tr } = useLanguage();
 
   useEffect(() => {
     if (!address) return;
@@ -41,29 +45,32 @@ export default function AgentConfigPage() {
       })
       .catch((error) => {
         if (!error.message.includes('profile not found')) {
-          toast.error('Could not load risk profile', { description: error.message });
+          toast.error(tr('Could not load risk profile', 'Не удалось загрузить профиль риска'), { description: error.message });
         }
       });
   }, [address, updateConfig]);
 
   const handleSaveRisk = async () => {
     if (!address) {
-      toast.error('Connect your wallet before saving limits');
+      toast.error(tr('Connect your wallet before saving limits', 'Подключите кошелёк перед сохранением лимитов'));
       return;
     }
     if (config.maxSingleTradeUsd > config.investmentCapUsd) {
-      toast.error('Per-trade limit cannot exceed the investment cap');
+      toast.error(tr('Per-trade limit cannot exceed the investment cap', 'Лимит одной сделки не может превышать общий лимит инвестиций'));
       return;
     }
     setSaving(true);
     try {
       await saveRiskProfile(address, config);
-      toast.success('Risk limits saved', {
-        description: `The agent cannot manage more than $${config.investmentCapUsd.toLocaleString()}.`,
+      toast.success(tr('Risk limits saved', 'Лимиты сохранены'), {
+        description: tr(
+          `The agent cannot manage more than $${config.investmentCapUsd.toLocaleString()}.`,
+          `Агент не сможет управлять суммой больше $${config.investmentCapUsd.toLocaleString()}.`,
+        ),
       });
     } catch (error) {
-      toast.error('Could not save risk limits', {
-        description: error instanceof Error ? error.message : 'Unknown API error',
+      toast.error(tr('Could not save risk limits', 'Не удалось сохранить лимиты'), {
+        description: error instanceof Error ? error.message : tr('Unknown API error', 'Неизвестная ошибка API'),
       });
     } finally {
       setSaving(false);
@@ -71,24 +78,36 @@ export default function AgentConfigPage() {
   };
 
   const sections = [
-    { id: 'strategy', name: 'Strategy Profile', icon: Activity },
-    { id: 'risk', name: 'Risk Parameters', icon: Shield },
-    { id: 'model', name: 'AI Model Settings', icon: Brain },
-    { id: 'data', name: 'Market Data Sources', icon: Cpu },
-    { id: 'prompt', name: 'AI Proposal Policy', icon: Settings2 },
-    { id: 'execution', name: 'Execution Rules', icon: Zap },
-    { id: 'notifications', name: 'Notifications', icon: Bell },
-    { id: 'keypair', name: 'Agent Keypair', icon: Key },
+    { id: 'risk', name: tr('Investment limits', 'Лимиты инвестиций'), icon: Shield },
+    { id: 'strategy', name: tr('Strategy Profile', 'Профиль стратегии'), icon: Activity },
+    { id: 'model', name: tr('AI Model Settings', 'Настройки ИИ-модели'), icon: Brain },
+    { id: 'data', name: tr('Market Data Sources', 'Источники данных'), icon: Cpu },
+    { id: 'prompt', name: tr('AI Proposal Policy', 'Политика ИИ-предложений'), icon: Settings2 },
+    { id: 'execution', name: tr('Execution Rules', 'Правила исполнения'), icon: Zap },
+    { id: 'notifications', name: tr('Notifications', 'Уведомления'), icon: Bell },
+    { id: 'keypair', name: tr('Agent Keypair', 'Ключ агента'), icon: Key },
   ];
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-8">
       <header>
-        <h1 className="text-2xl font-bold text-text-primary">Agent Configuration</h1>
-        <p className="text-text-secondary mt-1">Configure the hard limits around autonomous vault management.</p>
+        <h1 className="text-2xl font-bold text-text-primary">{tr('Agent limits and settings', 'Лимиты и настройки агента')}</h1>
+        <p className="text-text-secondary mt-1">{tr('Set how much money the AI may manage. These limits cannot be overridden by the model.', 'Задайте, какой суммой может управлять ИИ. Модель не может обойти эти ограничения.')}</p>
       </header>
 
-      <div className="grid grid-cols-[240px,1fr] gap-8">
+      <Card className="border-accent/30 bg-accent/5 p-5">
+        <div className="flex items-start gap-3">
+          <Info size={18} className="mt-0.5 shrink-0 text-accent" />
+          <div>
+            <div className="text-sm font-semibold text-text-primary">{tr('How to configure the agent', 'Как настроить агента')}</div>
+            <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+              {tr('1. Connect Phantom. 2. Enter the four limits below. 3. Click “Save enforced limits”. The settings are linked to your wallet address.', '1. Подключите Phantom. 2. Укажите четыре лимита ниже. 3. Нажмите «Сохранить лимиты». Настройки будут привязаны к адресу вашего кошелька.')}
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[240px,1fr] gap-8">
         {/* Sidebar Nav */}
         <div className="space-y-1">
           {sections.map((section) => (
@@ -116,15 +135,15 @@ export default function AgentConfigPage() {
           {activeSection === 'strategy' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div>
-                <h2 className="text-lg font-semibold text-text-primary">Strategy Profile</h2>
-                <p className="text-sm text-text-secondary mt-1">Choose how aggressively the AI agent manages your vault.</p>
+                <h2 className="text-lg font-semibold text-text-primary">{tr('Strategy Profile', 'Профиль стратегии')}</h2>
+                <p className="text-sm text-text-secondary mt-1">{tr('Choose how aggressively the AI agent manages your vault.', 'Выберите, насколько активно ИИ-агент будет управлять хранилищем.')}</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
-                  { id: 'Conservative', label: 'Low Activity', trigger: '3σ', max: '5%', desc: 'Capital preservation with minimal fees.' },
-                  { id: 'Balanced', label: 'Recommended', trigger: '2σ', max: '15%', desc: 'Balanced between responsiveness and stability.' },
-                  { id: 'Growth', label: 'High Activity', trigger: '1σ', max: '30%', desc: 'Higher activity while remaining inside hard policy limits.' },
+                  { id: 'Conservative', name: tr('Conservative', 'Консервативный'), label: tr('Low Activity', 'Низкая активность'), trigger: '3σ', max: '5%', desc: tr('Capital preservation with minimal fees.', 'Сохранение капитала при минимальных комиссиях.') },
+                  { id: 'Balanced', name: tr('Balanced', 'Сбалансированный'), label: tr('Recommended', 'Рекомендуется'), trigger: '2σ', max: '15%', desc: tr('Balanced between responsiveness and stability.', 'Баланс между реакцией на рынок и стабильностью.') },
+                  { id: 'Growth', name: tr('Growth', 'Рост'), label: tr('High Activity', 'Высокая активность'), trigger: '1σ', max: '30%', desc: tr('Higher activity while remaining inside hard policy limits.', 'Более высокая активность в пределах жёстких лимитов.') },
                 ].map((profile) => (
                   <button
                     key={profile.id}
@@ -137,14 +156,14 @@ export default function AgentConfigPage() {
                     )}
                   >
                     <Badge variant={config.profile === profile.id ? 'accent' : 'default'} className="mb-4">{profile.label}</Badge>
-                    <div className="text-md font-bold mb-2">{profile.id}</div>
+                    <div className="text-md font-bold mb-2">{profile.name}</div>
                     <div className="space-y-2 mb-4">
                       <div className="flex justify-between text-xs">
-                        <span className="text-text-muted">Trigger:</span>
+                        <span className="text-text-muted">{tr('Trigger:', 'Триггер:')}</span>
                         <span className="text-text-primary font-mono">{profile.trigger}</span>
                       </div>
                       <div className="flex justify-between text-xs">
-                        <span className="text-text-muted">Max Rebalance:</span>
+                        <span className="text-text-muted">{tr('Max Rebalance:', 'Макс. ребалансировка:')}</span>
                         <span className="text-text-primary font-mono">{profile.max}</span>
                       </div>
                     </div>
@@ -158,20 +177,20 @@ export default function AgentConfigPage() {
           {activeSection === 'risk' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div>
-                <h2 className="text-lg font-semibold text-text-primary">Risk Parameters</h2>
-                <p className="text-sm text-text-secondary mt-1">Fine-tune the boundaries within which the AI agent is allowed to operate.</p>
+                <h2 className="text-lg font-semibold text-text-primary">{tr('Investment and risk limits', 'Лимиты инвестиций и риска')}</h2>
+                <p className="text-sm text-text-secondary mt-1">{tr('These values define exactly how much the autonomous agent is allowed to manage and trade.', 'Эти значения точно определяют, какой суммой автономный агент может управлять и торговать.')}</p>
               </div>
 
               <Card className="p-8 space-y-8">
                 <div className="space-y-6">
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted">Hard Agent Limits</h3>
-                  <p className="text-xs text-text-muted">These limits are evaluated by the deterministic Risk Engine. The AI model cannot override them.</p>
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted">{tr('Hard Agent Limits', 'Жёсткие лимиты агента')}</h3>
+                  <p className="text-xs text-text-muted">{tr('The deterministic Risk Engine checks these limits. The AI model cannot change or bypass them.', 'Эти лимиты проверяет детерминированный Risk Engine. ИИ-модель не может их изменить или обойти.')}</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {([
-                      { key: 'investmentCapUsd', label: 'Investment cap', help: 'Maximum principal delegated to the autonomous vault.' },
-                      { key: 'maxSingleTradeUsd', label: 'Maximum single trade', help: 'Maximum USD value of one rebalance operation.' },
-                      { key: 'maxDailyTurnoverUsd', label: 'Daily turnover cap', help: 'Maximum total traded value during 24 hours.' },
-                      { key: 'maxDrawdownPct', label: 'Maximum drawdown', help: 'New buys stop after this drawdown; de-risking sells remain available.' },
+                      { key: 'investmentCapUsd', label: tr('Total investment cap', 'Общий лимит инвестиций'), help: tr('Maximum amount the AI may manage in total.', 'Максимальная общая сумма, которой может управлять ИИ.') },
+                      { key: 'maxSingleTradeUsd', label: tr('Maximum single trade', 'Максимум на одну сделку'), help: tr('Maximum USD value of one rebalance operation.', 'Максимальная сумма одной операции в долларах.') },
+                      { key: 'maxDailyTurnoverUsd', label: tr('Daily turnover cap', 'Дневной лимит оборота'), help: tr('Maximum total traded value during 24 hours.', 'Максимальная сумма всех сделок за 24 часа.') },
+                      { key: 'maxDrawdownPct', label: tr('Maximum drawdown', 'Максимальная просадка'), help: tr('New buys stop after this drawdown; de-risking sells remain available.', 'После такой просадки новые покупки останавливаются; защитные продажи остаются доступны.') },
                     ] as const).map((field) => (
                       <label key={field.key} className="space-y-2 rounded-lg border border-border-subtle bg-bg-elevated/50 p-4">
                         <span className="text-sm font-medium">{field.label}</span>
@@ -193,9 +212,10 @@ export default function AgentConfigPage() {
 
                 <div className="pt-8 border-t border-border-subtle">
                   <Button disabled={saving || !address} onClick={handleSaveRisk} className="gap-2">
-                    <Save size={16} /> {saving ? 'Saving…' : 'Save Enforced Limits'}
+                    <Save size={16} /> {saving ? tr('Saving…', 'Сохранение…') : tr('Save enforced limits', 'Сохранить лимиты')}
                   </Button>
-                  {!address && <p className="text-xs text-warning mt-3">Connect Phantom to bind these limits to your vault profile.</p>}
+                  {!address && <p className="text-xs text-warning mt-3">{tr('Connect Phantom to bind these limits to your vault profile.', 'Подключите Phantom, чтобы привязать лимиты к вашему профилю хранилища.')}</p>}
+                  {address && <p className="text-xs text-positive mt-3">{tr('Wallet connected. You can save the limits now.', 'Кошелёк подключён. Теперь можно сохранить лимиты.')}</p>}
                 </div>
               </Card>
             </div>
@@ -204,15 +224,15 @@ export default function AgentConfigPage() {
           {activeSection === 'prompt' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div>
-                <h2 className="text-lg font-semibold text-text-primary">AI Proposal Policy</h2>
-                <p className="text-sm text-text-secondary mt-1">The model may propose actions, but deterministic engines make every approval decision.</p>
+                <h2 className="text-lg font-semibold text-text-primary">{tr('AI Proposal Policy', 'Политика ИИ-предложений')}</h2>
+                <p className="text-sm text-text-secondary mt-1">{tr('The model may propose actions, but deterministic engines make every approval decision.', 'Модель может предлагать действия, но решение о допуске всегда принимают детерминированные модули.')}</p>
               </div>
 
               <Card className="p-0 overflow-hidden">
                 <textarea 
                   className="w-full h-[400px] bg-bg-elevated p-6 font-mono text-sm text-text-secondary focus:outline-none focus:text-text-primary leading-relaxed resize-none"
                   readOnly
-                  defaultValue={`You are the Solvex portfolio analysis component running on Solana.
+                  value={tr(`You are the Solvex portfolio analysis component running on Solana.
 
 Your role is to analyze market data and produce one structured portfolio proposal.
 You do not approve Shariah compliance, risk, simulation, or execution.
@@ -223,10 +243,21 @@ DECISION FRAMEWORK:
 2. Consider the vault's current allocation and target allocation
 3. Evaluate whether current conditions warrant a rebalance
 4. Produce a structured proposal with explicit leverage, derivative, and interest flags
-5. Allow the deterministic Shariah and Risk engines to accept or reject it`}
+5. Allow the deterministic Shariah and Risk engines to accept or reject it`, `Вы — компонент анализа портфеля Solvex в сети Solana.
+
+Ваша задача — анализировать рыночные данные и формировать одно структурированное предложение по портфелю.
+Вы не подтверждаете соответствие нормам Шариата, риски, симуляцию или исполнение.
+Никогда не заявляйте, что актив является халяльным. При неполных данных выбирайте HOLD.
+
+ПОРЯДОК ПРИНЯТИЯ РЕШЕНИЯ:
+1. Проанализировать рыночные данные
+2. Учесть текущее и целевое распределение хранилища
+3. Определить, нужна ли ребалансировка
+4. Сформировать структурированное предложение с флагами leverage, derivatives и interest
+5. Передать предложение Shariah и Risk Engine для принятия или отклонения`)}
                 />
                 <div className="p-4 border-t border-border-subtle flex justify-between items-center bg-bg-card">
-                  <span className="text-xs text-text-muted">Enforced server-side · version controlled</span>
+                  <span className="text-xs text-text-muted">{tr('Enforced server-side · version controlled', 'Применяется на сервере · контролируется по версиям')}</span>
                   <Badge variant="accent">gemini-3.5-flash-lite</Badge>
                 </div>
               </Card>
@@ -234,7 +265,7 @@ DECISION FRAMEWORK:
               <div className="flex items-start gap-3 p-4 bg-info-dim/10 border border-info-dim rounded-md">
                 <Info size={16} className="text-info mt-0.5 shrink-0" />
                 <p className="text-xs text-info leading-relaxed">
-                  The model output is constrained by a JSON schema. It is always treated as an untrusted proposal and cannot bypass the Shariah Firewall or Risk Engine.
+                  {tr('The model output is constrained by a JSON schema. It is always treated as an untrusted proposal and cannot bypass the Shariah Firewall or Risk Engine.', 'Ответ модели ограничен JSON-схемой и всегда считается недоверенным предложением. Он не может обойти Shariah Firewall или Risk Engine.')}
                 </p>
               </div>
             </div>
@@ -248,9 +279,9 @@ DECISION FRAMEWORK:
               </div>
               <div>
                 <h3 className="text-md font-semibold text-text-primary">{sections.find(s => s.id === activeSection)?.name}</h3>
-                <p className="text-sm text-text-secondary mt-1">This section is available in the full version.</p>
+                <p className="text-sm text-text-secondary mt-1">{tr('This section is available in the full version.', 'Этот раздел будет доступен в полной версии.')}</p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setActiveSection('strategy')}>Return to Strategy</Button>
+              <Button variant="outline" size="sm" onClick={() => setActiveSection('risk')}>{tr('Return to investment limits', 'Вернуться к лимитам')}</Button>
             </div>
           )}
         </div>

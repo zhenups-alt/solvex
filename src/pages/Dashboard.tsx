@@ -5,10 +5,13 @@ import { usePhantom } from '../components/WalletContextProvider';
 import { DecisionLogResponse, getDecisionLogs } from '../lib/solvexApi';
 import { truncateAddress } from '../lib/utils';
 import { useStore } from '../store';
+import { Link } from 'react-router-dom';
+import { localizeCode, useLanguage } from '../i18n';
 
 export default function Dashboard() {
   const { address, balance, network } = usePhantom();
   const { config } = useStore();
+  const { language, locale, tr } = useLanguage();
   const [decisions, setDecisions] = useState<DecisionLogResponse[]>([]);
 
   useEffect(() => {
@@ -23,76 +26,81 @@ export default function Dashboard() {
   const blocked = useMemo(() => decisions.filter((item) => item.status.startsWith('blocked')).length, [decisions]);
 
   return (
-    <div className="space-y-8 p-8">
+    <div className="space-y-8 p-4 md:p-8">
       <header className="flex flex-wrap justify-between gap-4 items-end">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">{address ? `Vault for ${truncateAddress(address)}` : 'Solvex Dashboard'}</h1>
-          <p className="text-text-secondary mt-1">Live wallet state and persisted policy decisions. No demo balances are shown.</p>
+          <h1 className="text-2xl font-bold text-text-primary">{address ? tr(`Vault for ${truncateAddress(address)}`, `Хранилище ${truncateAddress(address)}`) : tr('Solvex Dashboard', 'Панель Solvex')}</h1>
+          <p className="text-text-secondary mt-1">{tr('Live wallet state and persisted policy decisions. No demo balances are shown.', 'Актуальное состояние кошелька и сохранённые решения системы. Демонстрационные балансы не используются.')}</p>
         </div>
-        <Badge variant={address ? 'positive' : 'warning'}>{address ? `${network} connected` : 'wallet disconnected'}</Badge>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link to="/agent-config?section=risk" className="inline-flex h-9 items-center rounded-md bg-accent px-4 text-sm font-semibold text-bg-base hover:brightness-110">
+            {tr('Set agent limits', 'Настроить лимиты агента')}
+          </Link>
+          <Badge variant={address ? 'positive' : 'warning'}>{address ? tr(`${network} connected`, `${network} подключена`) : tr('wallet disconnected', 'кошелёк не подключён')}</Badge>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <Metric icon={Wallet} label="Wallet balance" value={balance == null ? '—' : `${balance.toFixed(4)} SOL`} note="Read directly from Solana RPC" />
-        <Metric icon={Shield} label="Investment cap" value={`$${config.investmentCapUsd.toLocaleString()}`} note="Deterministic backend limit" />
-        <Metric icon={Activity} label="Recorded decisions" value={String(decisions.length)} note={`${blocked} stopped by policy or risk`} />
-        <Metric icon={Bot} label="Execution mode" value="Fail-closed" note="Live execution remains disabled until deployment" />
+        <Metric icon={Wallet} label={tr('Wallet balance', 'Баланс кошелька')} value={balance == null ? '—' : `${balance.toFixed(4)} SOL`} note={tr('Read directly from Solana RPC', 'Получен напрямую через Solana RPC')} />
+        <Metric icon={Shield} label={tr('Investment cap', 'Лимит инвестиций')} value={`$${config.investmentCapUsd.toLocaleString(locale)}`} note={tr('Deterministic backend limit', 'Жёсткий лимит на сервере')} />
+        <Metric icon={Activity} label={tr('Recorded decisions', 'Записано решений')} value={String(decisions.length)} note={tr(`${blocked} stopped by policy or risk`, `${blocked} остановлено политикой или риском`)} />
+        <Metric icon={Bot} label={tr('Execution mode', 'Режим исполнения')} value={tr('Fail-closed', 'Запрет при ошибке')} note={tr('Live execution remains disabled until deployment', 'Реальные сделки пока отключены')} />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <Card className="p-6">
-          <h2 className="text-md font-semibold text-text-primary mb-5">Latest decision</h2>
+          <h2 className="text-md font-semibold text-text-primary mb-5">{tr('Latest decision', 'Последнее решение')}</h2>
           {!latest ? (
-            <p className="text-sm text-text-muted">No decisions recorded for this wallet yet.</p>
+            <p className="text-sm text-text-muted">{tr('No decisions recorded for this wallet yet.', 'Для этого кошелька пока нет решений.')}</p>
           ) : (
             <div className="space-y-5">
               <div className="flex flex-wrap items-center gap-3">
-                <Badge>{latest.proposal.action}</Badge>
+                <Badge>{localizeCode(latest.proposal.action, language)}</Badge>
                 <span className="font-mono text-sm">{latest.proposal.input_asset || '—'} → {latest.proposal.output_asset || '—'}</span>
-                <span className="text-xs text-text-muted">{new Date(latest.created_at).toLocaleString()}</span>
+                <span className="text-xs text-text-muted">{new Date(latest.created_at).toLocaleString(locale)}</span>
               </div>
               <p className="text-sm text-text-secondary leading-relaxed">{latest.proposal.rationale}</p>
               <div className="grid grid-cols-2 gap-3 text-xs">
-                <StatusBox label="Shariah screen" value={latest.shariah.status} version={latest.shariah.methodology_version} />
-                <StatusBox label="Risk screen" value={latest.risk.status} version={latest.risk.methodology_version} />
+                <StatusBox label={tr('Shariah screen', 'Проверка Шариата')} value={localizeCode(latest.shariah.status, language)} version={latest.shariah.methodology_version} />
+                <StatusBox label={tr('Risk screen', 'Проверка риска')} value={localizeCode(latest.risk.status, language)} version={latest.risk.methodology_version} />
               </div>
               <div className="rounded border border-border-subtle bg-bg-elevated p-3 text-xs text-text-secondary">
-                Result: <span className="font-mono text-text-primary">{latest.status.replaceAll('_', ' ')}</span>
+                {tr('Result:', 'Результат:')} <span className="font-mono text-text-primary">{localizeCode(latest.status, language)}</span>
               </div>
             </div>
           )}
         </Card>
 
         <Card className="p-6">
-          <h2 className="text-md font-semibold text-text-primary mb-5">Autonomy boundary</h2>
+          <h2 className="text-md font-semibold text-text-primary mb-5">{tr('Autonomy boundary', 'Границы автономности')}</h2>
           <div className="space-y-4 text-sm text-text-secondary">
-            <BoundaryRow text="AI generates a structured proposal; it cannot approve itself." />
-            <BoundaryRow text="Eligible, Review, and Blocked are methodology outcomes—not halal claims." />
-            <BoundaryRow text="The owner can pause the vault or revoke the agent at any time." />
-            <BoundaryRow text="The agent cannot withdraw; Jupiter swaps are limited to configured custody accounts." />
+            <BoundaryRow text={tr('AI generates a structured proposal; it cannot approve itself.', 'ИИ формирует предложение, но не может сам его одобрить.')} />
+            <BoundaryRow text={tr('Eligible, Review, and Blocked are methodology outcomes—not halal claims.', 'Eligible, Review и Blocked — результаты методологии, а не заявление о халяльности.')} />
+            <BoundaryRow text={tr('The owner can pause the vault or revoke the agent at any time.', 'Владелец может в любой момент приостановить хранилище или отозвать права агента.')} />
+            <BoundaryRow text={tr('The agent cannot withdraw; Jupiter swaps are limited to configured custody accounts.', 'Агент не может выводить средства; обмены Jupiter ограничены настроенными счетами хранилища.')} />
           </div>
         </Card>
       </div>
 
       <Card className="p-0 overflow-hidden">
         <div className="p-6 border-b border-border-subtle">
-          <h2 className="text-md font-semibold text-text-primary">Recent decisions</h2>
+          <h2 className="text-md font-semibold text-text-primary">{tr('Recent decisions', 'Последние решения')}</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
-            <thead><tr className="text-[11px] text-text-muted uppercase tracking-wider border-b border-border-subtle"><th className="px-6 py-4">Time</th><th className="px-6 py-4">Action</th><th className="px-6 py-4">Amount</th><th className="px-6 py-4">Shariah</th><th className="px-6 py-4">Risk</th><th className="px-6 py-4">Result</th></tr></thead>
+            <thead><tr className="text-[11px] text-text-muted uppercase tracking-wider border-b border-border-subtle"><th className="px-6 py-4">{tr('Time', 'Время')}</th><th className="px-6 py-4">{tr('Action', 'Действие')}</th><th className="px-6 py-4">{tr('Amount', 'Сумма')}</th><th className="px-6 py-4">{tr('Shariah', 'Шариат')}</th><th className="px-6 py-4">{tr('Risk', 'Риск')}</th><th className="px-6 py-4">{tr('Result', 'Результат')}</th></tr></thead>
             <tbody className="divide-y divide-border-subtle">
               {decisions.slice(0, 8).map((row) => (
                 <tr key={row.id} className="text-sm">
-                  <td className="px-6 py-4 text-text-secondary">{new Date(row.created_at).toLocaleString()}</td>
-                  <td className="px-6 py-4 uppercase text-xs font-bold">{row.proposal.action}</td>
-                  <td className="px-6 py-4 font-mono">${Number(row.proposal.amount_usd).toLocaleString()}</td>
-                  <td className="px-6 py-4">{row.shariah.status}</td>
-                  <td className="px-6 py-4">{row.risk.status}</td>
-                  <td className="px-6 py-4 font-mono text-xs">{row.status.replaceAll('_', ' ')}</td>
+                  <td className="px-6 py-4 text-text-secondary">{new Date(row.created_at).toLocaleString(locale)}</td>
+                  <td className="px-6 py-4 uppercase text-xs font-bold">{localizeCode(row.proposal.action, language)}</td>
+                  <td className="px-6 py-4 font-mono">${Number(row.proposal.amount_usd).toLocaleString(locale)}</td>
+                  <td className="px-6 py-4">{localizeCode(row.shariah.status, language)}</td>
+                  <td className="px-6 py-4">{localizeCode(row.risk.status, language)}</td>
+                  <td className="px-6 py-4 font-mono text-xs">{localizeCode(row.status, language)}</td>
                 </tr>
               ))}
-              {!decisions.length && <tr><td colSpan={6} className="px-6 py-10 text-center text-sm text-text-muted">Connect a wallet and run an analysis to populate this table.</td></tr>}
+              {!decisions.length && <tr><td colSpan={6} className="px-6 py-10 text-center text-sm text-text-muted">{tr('Connect a wallet and run an analysis to populate this table.', 'Подключите кошелёк и запустите анализ, чтобы здесь появились решения.')}</td></tr>}
             </tbody>
           </table>
         </div>

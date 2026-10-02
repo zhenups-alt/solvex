@@ -14,6 +14,7 @@ import { RefreshCw } from 'lucide-react';
 import { Card, Button } from '../components/UI';
 import { usePhantom } from '../components/WalletContextProvider';
 import { DecisionLogResponse, getDecisionLogs } from '../lib/solvexApi';
+import { localizeCode, useLanguage } from '../i18n';
 
 const ACTION_COLORS: Record<string, string> = {
   buy: '#14F195',
@@ -24,6 +25,7 @@ const ACTION_COLORS: Record<string, string> = {
 
 export default function AnalyticsPage() {
   const { address } = usePhantom();
+  const { language, tr } = useLanguage();
   const [decisions, setDecisions] = useState<DecisionLogResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,11 +41,11 @@ export default function AnalyticsPage() {
       const response = await getDecisionLogs(address, 100);
       setDecisions(response.items);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Could not load analytics');
+      setError(loadError instanceof Error ? loadError.message : tr('Could not load analytics', 'Не удалось загрузить аналитику'));
     } finally {
       setLoading(false);
     }
-  }, [address]);
+  }, [address, tr]);
 
   useEffect(() => {
     void load();
@@ -55,11 +57,11 @@ export default function AnalyticsPage() {
       return result;
     }, {});
     return Object.entries(counts).map(([name, value]) => ({
-      name: name.toUpperCase(),
+      name: localizeCode(name, language).toUpperCase(),
       value,
       color: ACTION_COLORS[name] || '#F59E0B',
     }));
-  }, [decisions]);
+  }, [decisions, language]);
 
   const confidenceData = useMemo(() => {
     const buckets = [
@@ -83,28 +85,28 @@ export default function AnalyticsPage() {
   }), [decisions]);
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-8">
       <header className="flex flex-wrap justify-between items-start gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Decision Analytics</h1>
-          <p className="text-text-secondary mt-1">Aggregates only persisted decisions for the connected wallet. No synthetic performance data.</p>
+          <h1 className="text-2xl font-bold text-text-primary">{tr('Decision Analytics', 'Аналитика решений')}</h1>
+          <p className="text-text-secondary mt-1">{tr('Aggregates only persisted decisions for the connected wallet. No synthetic performance data.', 'Показывает только сохранённые решения подключённого кошелька. Искусственные показатели доходности не используются.')}</p>
         </div>
         <Button variant="outline" size="sm" className="gap-2" disabled={!address || loading} onClick={() => void load()}>
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> {tr('Refresh', 'Обновить')}
         </Button>
       </header>
 
-      {!address && <Card className="p-8 text-center text-sm text-text-secondary">Connect Phantom to load wallet-specific analytics.</Card>}
+      {!address && <Card className="p-8 text-center text-sm text-text-secondary">{tr('Connect Phantom to load wallet-specific analytics.', 'Подключите Phantom, чтобы загрузить аналитику этого кошелька.')}</Card>}
       {error && <Card className="p-6 border-negative/40 text-sm text-negative">{error}</Card>}
 
       {address && !error && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: 'Recorded decisions', value: summary.total },
-              { label: 'Passed both engines', value: summary.executable },
-              { label: 'Stopped before execution', value: summary.stopped },
-              { label: 'Confirmed executions', value: summary.executed },
+              { label: tr('Recorded decisions', 'Записано решений'), value: summary.total },
+              { label: tr('Passed both engines', 'Прошли обе проверки'), value: summary.executable },
+              { label: tr('Stopped before execution', 'Остановлены до исполнения'), value: summary.stopped },
+              { label: tr('Confirmed executions', 'Подтверждённые исполнения'), value: summary.executed },
             ].map((stat) => (
               <Card key={stat.label}>
                 <div className="text-xs text-text-muted uppercase tracking-wider mb-2">{stat.label}</div>
@@ -114,11 +116,11 @@ export default function AnalyticsPage() {
           </div>
 
           {decisions.length === 0 ? (
-            <Card className="p-12 text-center text-sm text-text-muted">No decisions have been recorded for this wallet yet.</Card>
+            <Card className="p-12 text-center text-sm text-text-muted">{tr('No decisions have been recorded for this wallet yet.', 'Для этого кошелька пока не записано ни одного решения.')}</Card>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card className="p-6">
-                <h2 className="text-md font-semibold text-text-primary mb-8">Action distribution</h2>
+                <h2 className="text-md font-semibold text-text-primary mb-8">{tr('Action distribution', 'Распределение действий')}</h2>
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-8">
                   <div className="h-[220px] w-[220px]">
                     <ResponsiveContainer width="100%" height="100%">
@@ -145,7 +147,7 @@ export default function AnalyticsPage() {
               </Card>
 
               <Card className="p-6">
-                <h2 className="text-md font-semibold text-text-primary mb-8">Proposal confidence</h2>
+                <h2 className="text-md font-semibold text-text-primary mb-8">{tr('Proposal confidence', 'Уверенность предложений')}</h2>
                 <div className="h-[220px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={confidenceData}>
@@ -156,7 +158,7 @@ export default function AnalyticsPage() {
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-                <p className="text-[11px] text-text-muted text-center mt-4">Confidence is model metadata, not a guarantee of performance or correctness.</p>
+                <p className="text-[11px] text-text-muted text-center mt-4">{tr('Confidence is model metadata, not a guarantee of performance or correctness.', 'Уверенность — это метаданные модели, а не гарантия доходности или правильности.')}</p>
               </Card>
             </div>
           )}
