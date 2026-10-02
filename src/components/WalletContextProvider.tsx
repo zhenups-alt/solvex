@@ -6,7 +6,7 @@
  */
 
 import React, { FC, ReactNode, createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Connection, PublicKey, SystemProgram, Transaction, clusterApiUrl, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey, SystemProgram, Transaction, clusterApiUrl, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { toast } from 'sonner';
 import { useLanguage } from '../i18n';
 
@@ -32,6 +32,7 @@ interface WalletContextState {
   disconnect: () => Promise<void>;
   signMessage: (message: string) => Promise<string | null>;
   sendSol: (recipient: string, amountSol: number) => Promise<string | null>;
+  sendTransaction: (transaction: Transaction, additionalSigners?: Keypair[]) => Promise<string>;
 }
 
 const WalletContext = createContext<WalletContextState>({} as WalletContextState);
@@ -287,6 +288,39 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
     }
   }, [publicKey, connection, fetchBalance, tr]);
 
+  const sendTransaction = useCallback(async (
+    transaction: Transaction,
+    additionalSigners: Keypair[] = [],
+  ): Promise<string> => {
+    const phantom = getPhantom();
+    if (!phantom || !publicKey) {
+      throw new Error(tr('Wallet not connected', 'Кошелёк не подключён'));
+    }
+
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = publicKey;
+    if (additionalSigners.length) transaction.partialSign(...additionalSigners);
+
+    try {
+      const { signature } = await phantom.signAndSendTransaction(transaction);
+      const confirmation = await connection.confirmTransaction(
+        { signature, blockhash, lastValidBlockHeight },
+        'confirmed',
+      );
+      if (confirmation.value.err) {
+        throw new Error(JSON.stringify(confirmation.value.err));
+      }
+      await fetchBalance(publicKey, connection);
+      return signature;
+    } catch (error: any) {
+      if (error?.code === 4001) {
+        throw new Error(tr('Transaction rejected in Phantom', 'Транзакция отклонена в Phantom'));
+      }
+      throw error;
+    }
+  }, [connection, fetchBalance, publicKey, tr]);
+
   return (
     <WalletContext.Provider value={{
       connected,
@@ -301,6 +335,7 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
       disconnect,
       signMessage,
       sendSol,
+      sendTransaction,
     }}>
       {children}
     </WalletContext.Provider>

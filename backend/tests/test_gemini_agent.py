@@ -75,3 +75,5 @@ async def test_structured_gemini_response_is_revalidated_as_domain_proposal() ->
     assert result.action == TradeAction.HOLD
     assert result.confidence == 70
     assert result.key_signals == ["LOW_CONFIDENCE"]
+    assert result.input_asset == ""
+    assert result.output_asset == ""

@@ -61,8 +61,10 @@ const CODE_RU: Record<string, string> = {
   executed: 'исполнено',
   ready_for_execution: 'готово к исполнению',
   simulation_failed: 'ошибка симуляции',
-  blocked_by_shariah: 'отклонено Shariah Firewall',
-  blocked_by_risk: 'отклонено Risk Engine',
+  no_action: 'действие не требуется',
+  ready_for_simulation: 'готово к симуляции',
+  blocked_shariah: 'отклонено Shariah Firewall',
+  blocked_risk: 'отклонено Risk Engine',
   recorded: 'записано',
 };
 

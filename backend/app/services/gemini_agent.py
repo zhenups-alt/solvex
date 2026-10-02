@@ -80,6 +80,7 @@ class GeminiPortfolioAgent:
         profile: RiskProfile,
         snapshot: PortfolioSnapshot,
         market_context: dict,
+        language: str = "en",
     ) -> TradeProposal:
         if self.client is None:
             return self._safe_hold("Gemini is not configured; fail-closed HOLD.")
@@ -90,14 +91,21 @@ class GeminiPortfolioAgent:
                     "risk_profile": profile.model_dump(mode="json"),
                     "portfolio_snapshot": snapshot.model_dump(mode="json"),
                     "market_context": market_context,
+                    "response_language": language,
                 }
+            )
+            language_instruction = (
+                "Write rationale and key_signals in Russian. Keep asset, protocol, and action "
+                "identifiers unchanged."
+                if language == "ru"
+                else "Write rationale and key_signals in English."
             )
             async with self.client.aio as async_client:
                 response = await async_client.models.generate_content(
                     model=self.model,
                     contents=contents,
                     config=types.GenerateContentConfig(
-                        system_instruction=SYSTEM_PROMPT,
+                        system_instruction=f"{SYSTEM_PROMPT}\n{language_instruction}",
                         temperature=0,
                         response_mime_type="application/json",
                         response_json_schema=StructuredTradeProposal.model_json_schema(),
@@ -106,7 +114,25 @@ class GeminiPortfolioAgent:
             if not response.text:
                 return self._safe_hold("Gemini returned no proposal; fail-closed HOLD.")
             structured = StructuredTradeProposal.model_validate_json(response.text)
-            return TradeProposal.model_validate(structured.model_dump())
+            proposal = TradeProposal.model_validate(structured.model_dump())
+            if proposal.action == TradeAction.HOLD:
+                return TradeProposal(
+                    action=TradeAction.HOLD,
+                    transaction_kind=TransactionKind.HOLD,
+                    input_asset="",
+                    output_asset="",
+                    protocol_id="none",
+                    route_programs=[],
+                    amount_usd=Decimal("0"),
+                    slippage_bps=0,
+                    confidence=proposal.confidence,
+                    rationale=proposal.rationale,
+                    key_signals=proposal.key_signals,
+                    uses_leverage=False,
+                    uses_derivative=False,
+                    uses_interest=False,
+                )
+            return proposal
         except Exception:
             logger.exception("Gemini proposal failed; returning fail-closed HOLD")
             return self._safe_hold("Gemini failed; fail-closed HOLD.")

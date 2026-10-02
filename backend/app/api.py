@@ -1,3 +1,4 @@
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -18,6 +19,7 @@ from app.models import DecisionLogRecord, RiskProfileRecord
 from app.policy.methodology import METHODOLOGY
 from app.services.decision_pipeline import DecisionPipeline
 from app.services.gemini_agent import GeminiPortfolioAgent
+from app.services.market_data import MarketDataUnavailable, SolMarketDataService
 from app.services.shariah_engine import ShariahPolicyEngine
 
 router = APIRouter(prefix="/api/v1")
@@ -41,6 +43,12 @@ class AgentAnalysisRequest(BaseModel):
     wallet_address: str
     snapshot: PortfolioSnapshot
     market_context: dict
+    language: Literal["en", "ru"] = "en"
+
+
+class SimulationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    wallet_address: str
 
 
 def to_domain_profile(record: RiskProfileRecord) -> RiskProfile:
@@ -59,6 +67,20 @@ def to_domain_profile(record: RiskProfileRecord) -> RiskProfile:
 @router.get("/policy/methodology")
 async def get_methodology() -> dict:
     return METHODOLOGY
+
+
+@router.get("/market/sol")
+async def get_sol_market_data() -> dict:
+    try:
+        snapshot = await SolMarketDataService().get_snapshot()
+    except MarketDataUnavailable as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    return {
+        "symbol": "SOL",
+        "price_usd": str(snapshot.price_usd),
+        "change_24h_pct": str(snapshot.change_24h_pct),
+        "source": snapshot.source,
+    }
 
 
 @router.post("/policy/screen")
@@ -150,6 +172,7 @@ async def analyze_portfolio(
         profile=profile,
         snapshot=payload.snapshot,
         market_context=payload.market_context,
+        language=payload.language,
     )
     result = pipeline.evaluate(proposal=proposal, profile=profile, snapshot=payload.snapshot)
     session.add(
@@ -165,6 +188,55 @@ async def analyze_portfolio(
     )
     await session.commit()
     return result
+
+
+@router.post("/decisions/{decision_id}/simulate")
+async def simulate_decision(
+    decision_id: UUID,
+    payload: SimulationRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    record = await session.scalar(
+        select(DecisionLogRecord).where(
+            DecisionLogRecord.id == decision_id,
+            DecisionLogRecord.wallet_address == payload.wallet_address,
+        )
+    )
+    if record is None:
+        raise HTTPException(status_code=404, detail="decision not found")
+
+    settings = get_settings()
+    if not record.execution_allowed:
+        simulation = {
+            "status": "skipped",
+            "mode": "policy_only",
+            "reason": "proposal did not pass both deterministic engines",
+        }
+    elif settings.solana_cluster == "devnet":
+        simulation = {
+            "status": "environment_blocked",
+            "mode": "policy_only",
+            "reason": "canonical Jupiter v6 is unavailable as a Devnet SBF program",
+            "policy_and_risk_validated": True,
+        }
+    elif not settings.jupiter_api_key:
+        simulation = {
+            "status": "environment_blocked",
+            "mode": "policy_only",
+            "reason": "Jupiter API key is not configured",
+            "policy_and_risk_validated": True,
+        }
+    else:
+        simulation = {
+            "status": "pending_integration",
+            "mode": "policy_only",
+            "reason": "transaction builder is not enabled",
+            "policy_and_risk_validated": True,
+        }
+
+    record.simulation = simulation
+    await session.commit()
+    return {"decision_id": str(record.id), "simulation": simulation}
 
 
 @router.get("/decisions/{wallet_address}")

@@ -55,6 +55,21 @@ export interface DecisionLogResponse {
   created_at: string;
 }
 
+export interface SolMarketDataResponse {
+  symbol: 'SOL';
+  price_usd: string;
+  change_24h_pct: string;
+  source: string;
+}
+
+export interface PortfolioSnapshotInput {
+  vault_principal_usd: number;
+  vault_market_value_usd: number;
+  daily_turnover_usd: number;
+  current_drawdown_pct: number;
+  captured_at: string;
+}
+
 const profileToApi = (profile: AgentConfig['profile']): RiskProfileResponse['risk_level'] =>
   profile.toLowerCase() as RiskProfileResponse['risk_level'];
 
@@ -89,4 +104,32 @@ export const saveRiskProfile = (walletAddress: string, config: AgentConfig) =>
 export const getDecisionLogs = (walletAddress: string, limit = 50) =>
   request<{ items: DecisionLogResponse[] }>(
     `/api/v1/decisions/${encodeURIComponent(walletAddress)}?limit=${limit}`,
+  );
+
+export const getSolMarketData = () => request<SolMarketDataResponse>('/api/v1/market/sol');
+
+export const analyzePortfolio = (
+  walletAddress: string,
+  snapshot: PortfolioSnapshotInput,
+  marketContext: Record<string, unknown>,
+  language: 'en' | 'ru',
+) => request<DecisionLogResponse>('/api/v1/agent/analyze', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    wallet_address: walletAddress,
+    snapshot,
+    market_context: marketContext,
+    language,
+  }),
+});
+
+export const simulateDecision = (decisionId: string, walletAddress: string) =>
+  request<{ decision_id: string; simulation: Record<string, unknown> }>(
+    `/api/v1/decisions/${decisionId}/simulate`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet_address: walletAddress }),
+    },
   );

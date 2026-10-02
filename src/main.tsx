@@ -4,6 +4,9 @@ import App from './App.tsx';
 import './index.css';
 import { WalletContextProvider } from './components/WalletContextProvider.tsx';
 import { LanguageProvider } from './i18n.tsx';
+import { Buffer } from 'buffer';
+
+(globalThis as typeof globalThis & { Buffer: typeof Buffer }).Buffer = Buffer;
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
