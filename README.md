@@ -26,7 +26,7 @@ or failed simulation stops automatic execution.
 - Versioned `Eligible / Review / Blocked` Shariah screening
 - Deterministic investment cap, per-trade, turnover, slippage, and drawdown checks
 - Persistent explainable Decision Log
-- OpenAI Responses API adapter with strict structured output
+- Gemini adapter using the official Google Gen AI SDK and structured output
 - Per-user Anchor vault with owner-only custody, pause/revoke, and on-chain limits
 - Anchor vault deployed on Solana Devnet
 - Execution feature flag defaults to off
@@ -69,22 +69,22 @@ cp backend/.env.example backend/.env
 
 API documentation is available at `http://localhost:8080/docs`.
 
-`OPENAI_API_KEY` is optional for policy and risk development. Keep it only in
+`GEMINI_API_KEY` is optional for policy and risk development. Keep it only in
 `backend/.env`; never expose it through a `VITE_*` variable.
 
 Create project-scoped API credentials in the provider dashboards, then paste them into
 the ignored `backend/.env` file:
 
 ```env
-OPENAI_API_KEY=
+GEMINI_API_KEY=
 JUPITER_API_KEY=
 ```
 
-- OpenAI keys: `https://platform.openai.com/api-keys`
-- OpenAI billing: `https://platform.openai.com/settings/organization/billing/overview`
+- Gemini keys: `https://aistudio.google.com/apikey`
+- Gemini pricing: `https://ai.google.dev/gemini-api/docs/pricing`
 - Jupiter Developer Portal: `https://developers.jup.ag/portal`
 
-The OpenAI key is displayed in full only once. The Jupiter key uses the `jup_...` format
+The Gemini key is a backend-only credential. The Jupiter key uses the `jup_...` format
 and is sent to `api.jup.ag` in the `x-api-key` header. Do not paste either key into GitHub,
 the frontend, screenshots, or chat messages.
 

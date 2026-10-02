@@ -227,7 +227,7 @@ DECISION FRAMEWORK:
                 />
                 <div className="p-4 border-t border-border-subtle flex justify-between items-center bg-bg-card">
                   <span className="text-xs text-text-muted">Enforced server-side · version controlled</span>
-                  <Badge variant="accent">gpt-6-astra</Badge>
+                  <Badge variant="accent">gemini-3.5-flash-lite</Badge>
                 </div>
               </Card>
               

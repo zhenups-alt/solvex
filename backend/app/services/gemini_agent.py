@@ -1,8 +1,10 @@
 import json
 import logging
 from decimal import Decimal
+from typing import Any
 
-from openai import AsyncOpenAI
+from google import genai
+from google.genai import types
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.config import Settings
@@ -27,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 class StructuredTradeProposal(BaseModel):
-    """All fields are required so OpenAI strict Structured Outputs can enforce the schema."""
+    """Provider schema; the result is validated again by the domain model."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -37,7 +39,7 @@ class StructuredTradeProposal(BaseModel):
     output_asset: str
     protocol_id: str
     route_programs: list[str]
-    amount_usd: Decimal = Field(ge=0)
+    amount_usd: float = Field(ge=0)
     slippage_bps: int = Field(ge=0, le=10_000)
     confidence: int = Field(ge=0, le=100)
     rationale: str
@@ -47,13 +49,12 @@ class StructuredTradeProposal(BaseModel):
     uses_interest: bool
 
 
-class OpenAIPortfolioAgent:
-    def __init__(self, settings: Settings) -> None:
-        self.client = (
-            AsyncOpenAI(api_key=settings.openai_api_key) if settings.openai_api_key else None
-        )
-        self.model = settings.openai_model
-        self.reasoning_effort = settings.openai_reasoning_effort
+class GeminiPortfolioAgent:
+    def __init__(self, settings: Settings, client: Any | None = None) -> None:
+        self.client = client
+        if self.client is None and settings.gemini_api_key:
+            self.client = genai.Client(api_key=settings.gemini_api_key)
+        self.model = settings.gemini_model
 
     @staticmethod
     def _safe_hold(reason: str) -> TradeProposal:
@@ -81,39 +82,31 @@ class OpenAIPortfolioAgent:
         market_context: dict,
     ) -> TradeProposal:
         if self.client is None:
-            return self._safe_hold("AI provider is not configured; fail-closed HOLD.")
+            return self._safe_hold("Gemini is not configured; fail-closed HOLD.")
 
         try:
-            response = await self.client.responses.create(
-                model=self.model,
-                reasoning={"effort": self.reasoning_effort},
-                store=False,
-                input=[
-                    {"role": "developer", "content": SYSTEM_PROMPT},
-                    {
-                        "role": "user",
-                        "content": json.dumps(
-                            {
-                                "risk_profile": profile.model_dump(mode="json"),
-                                "portfolio_snapshot": snapshot.model_dump(mode="json"),
-                                "market_context": market_context,
-                            }
-                        ),
-                    },
-                ],
-                text={
-                    "format": {
-                        "type": "json_schema",
-                        "name": "trade_proposal",
-                        "strict": True,
-                        "schema": StructuredTradeProposal.model_json_schema(),
-                    }
-                },
+            contents = json.dumps(
+                {
+                    "risk_profile": profile.model_dump(mode="json"),
+                    "portfolio_snapshot": snapshot.model_dump(mode="json"),
+                    "market_context": market_context,
+                }
             )
-            if not response.output_text:
-                return self._safe_hold("AI provider returned no proposal; fail-closed HOLD.")
-            structured = StructuredTradeProposal.model_validate_json(response.output_text)
+            async with self.client.aio as async_client:
+                response = await async_client.models.generate_content(
+                    model=self.model,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        system_instruction=SYSTEM_PROMPT,
+                        temperature=0,
+                        response_mime_type="application/json",
+                        response_json_schema=StructuredTradeProposal.model_json_schema(),
+                    ),
+                )
+            if not response.text:
+                return self._safe_hold("Gemini returned no proposal; fail-closed HOLD.")
+            structured = StructuredTradeProposal.model_validate_json(response.text)
             return TradeProposal.model_validate(structured.model_dump())
         except Exception:
-            logger.exception("OpenAI proposal failed; returning fail-closed HOLD")
-            return self._safe_hold("AI provider failed; fail-closed HOLD.")
+            logger.exception("Gemini proposal failed; returning fail-closed HOLD")
+            return self._safe_hold("Gemini failed; fail-closed HOLD.")

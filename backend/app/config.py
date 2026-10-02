@@ -21,9 +21,8 @@ class Settings(BaseSettings):
     )
     auto_create_tables: bool = Field(True, alias="SOLVEX_AUTO_CREATE_TABLES")
 
-    openai_api_key: str | None = Field(None, alias="OPENAI_API_KEY")
-    openai_model: str = Field("gpt-6-astra", alias="SOLVEX_OPENAI_MODEL")
-    openai_reasoning_effort: str = Field("low", alias="SOLVEX_OPENAI_REASONING_EFFORT")
+    gemini_api_key: str | None = Field(None, alias="GEMINI_API_KEY")
+    gemini_model: str = Field("gemini-3.5-flash-lite", alias="SOLVEX_GEMINI_MODEL")
 
     solana_cluster: str = Field("devnet", alias="SOLVEX_SOLANA_CLUSTER")
     solana_rpc_url: str = Field("https://api.devnet.solana.com", alias="SOLVEX_SOLANA_RPC_URL")

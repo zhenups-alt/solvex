@@ -60,7 +60,7 @@ const DEFAULT_CONFIG: AgentConfig = {
   slippageTolerance: 0.5,
   minLiquidity: '$50k+',
   deviationTrigger: 2,
-  model: 'gpt-6-astra',
+  model: 'gemini-3.5-flash-lite',
   reasoningDepth: 50,
   temperature: 0.3,
 };

@@ -40,6 +40,7 @@ async def health() -> dict:
         "ok": True,
         "service": "solvex-api",
         "environment": settings.environment,
+        "gemini_configured": bool(settings.gemini_api_key),
         "execution_enabled": settings.execution_enabled,
         "jupiter_configured": bool(settings.jupiter_api_key),
         "vault_program_id": settings.vault_program_id,

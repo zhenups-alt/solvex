@@ -15,7 +15,7 @@ export default function ArchitecturePage() {
         <div className="grid grid-cols-1 gap-4">
           {[
             { layer: 'Client', border: 'border-info', items: ['React + Vite', 'Phantom Wallet', 'Risk Configuration', 'Decision Log'] },
-            { layer: 'Backend', border: 'border-accent', items: ['FastAPI', 'OpenAI Proposal Adapter', 'Shariah Policy Engine', 'Risk Engine'] },
+            { layer: 'Backend', border: 'border-accent', items: ['FastAPI', 'Gemini Proposal Adapter', 'Shariah Policy Engine', 'Risk Engine'] },
             { layer: 'Execution Boundary', border: 'border-solana', items: ['Simulation Gate', 'Jupiter v6 CPI', 'Agent Signer', 'Fail-Closed Status'] },
             { layer: 'Persistence + Chain', border: 'border-info', items: ['PostgreSQL / SQLAlchemy', 'Per-User Vault PDA', 'SPL Token Custody', 'Decision Hash Event'] },
           ].map((row, i) => (
@@ -92,7 +92,7 @@ export default function ArchitecturePage() {
             <tbody className="divide-y divide-border-subtle">
               {[
                 { layer: 'Smart Contract', tech: 'Anchor 0.31.1 / Rust', role: 'Vault custody and on-chain execution constraints' },
-                { layer: 'AI Adapter', tech: 'OpenAI Responses API', role: 'Schema-constrained portfolio proposals' },
+                { layer: 'AI Adapter', tech: 'Google Gen AI SDK', role: 'Schema-constrained portfolio proposals' },
                 { layer: 'Backend', tech: 'Python / FastAPI / SQLAlchemy', role: 'Policy, risk, orchestration, and audit trail' },
                 { layer: 'Database', tech: 'PostgreSQL', role: 'Profiles and explainable decision records' },
                 { layer: 'DEX Boundary', tech: 'Jupiter v6 CPI', role: 'Constrained base/quote spot swap execution' },

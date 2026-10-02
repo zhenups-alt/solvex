@@ -17,7 +17,7 @@ from app.domain.types import (
 from app.models import DecisionLogRecord, RiskProfileRecord
 from app.policy.methodology import METHODOLOGY
 from app.services.decision_pipeline import DecisionPipeline
-from app.services.openai_agent import OpenAIPortfolioAgent
+from app.services.gemini_agent import GeminiPortfolioAgent
 from app.services.shariah_engine import ShariahPolicyEngine
 
 router = APIRouter(prefix="/api/v1")
@@ -146,7 +146,7 @@ async def analyze_portfolio(
         raise HTTPException(status_code=404, detail="risk profile not found")
 
     profile = to_domain_profile(profile_record)
-    proposal = await OpenAIPortfolioAgent(get_settings()).propose(
+    proposal = await GeminiPortfolioAgent(get_settings()).propose(
         profile=profile,
         snapshot=payload.snapshot,
         market_context=payload.market_context,

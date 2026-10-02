@@ -241,7 +241,7 @@ export const Sidebar = () => {
             </div>
             <div className="flex justify-between text-[11px]">
               <span className="text-text-muted">Model:</span>
-              <span className="text-text-secondary">gpt-6-astra</span>
+              <span className="text-text-secondary">Gemini Flash-Lite</span>
             </div>
           </div>
           <Button disabled variant="outline" size="sm" className="w-full h-8 text-[11px] font-bold border-positive/20 text-positive">Program live · swaps locked</Button>

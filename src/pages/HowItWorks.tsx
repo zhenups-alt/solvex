@@ -22,7 +22,7 @@ export default function HowItWorksPage() {
           <div className="space-y-8 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-border-subtle">
             {[
               { step: '01', title: 'Structured Snapshot', desc: 'The backend assembles explicit portfolio, market, and user-risk inputs. Missing evidence is treated as a reason to stop.', icon: Activity },
-              { step: '02', title: 'AI Proposal', desc: 'The OpenAI adapter returns one schema-constrained proposal and rationale. The output is untrusted input, not authorization.', icon: Brain },
+              { step: '02', title: 'AI Proposal', desc: 'The Gemini adapter returns one schema-constrained proposal and rationale. The output is untrusted input, not authorization.', icon: Brain },
               { step: '03', title: 'Shariah Firewall', desc: 'Assets, protocol, and transaction mechanics are evaluated as Eligible, Review, or Blocked. Review never auto-executes.', icon: Shield },
               { step: '04', title: 'Risk Validation', desc: 'The deterministic Risk Engine applies the user investment cap, single-trade cap, daily turnover, drawdown, and slippage limits.', icon: CheckCircle },
               { step: '05', title: 'Simulation and Execution', desc: 'Only an eligible proposal may be simulated. Live Jupiter execution stays disabled until deployment and integration checks are complete.', icon: Zap },
