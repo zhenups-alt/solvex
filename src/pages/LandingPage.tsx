@@ -1,16 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, useInView, AnimatePresence, useScroll, useTransform, useSpring } from 'framer-motion';
+import React, { useRef } from 'react';
+import { motion, useInView, AnimatePresence } from 'framer-motion';
 import {
-  Brain, Zap, Shield, Sparkles, ArrowRight, TrendingUp,
-  Lock, CheckCircle2, ChevronRight, Circle, Globe, Cpu,
-  Layers, BarChart3, Database, Workflow, Terminal,
-  MessageSquare, Share2, Activity, Wallet
+  Brain, Zap, Shield, Sparkles, ArrowRight,
+  Lock, CheckCircle2, Circle, BarChart3, Workflow
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Waves } from '../components/ui/wave-background';
-import { HeroSplineBackground } from '../components/ui/spline-background';
 import { cn } from '../lib/utils';
-import { useStore } from '../store';
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Animation Wrappers
@@ -61,23 +56,12 @@ function SectionLabel({ children, color = "accent" }: { children: React.ReactNod
    Hero Section
 ───────────────────────────────────────────────────────────────────────────── */
 function HeroSection() {
-  const { decisions } = useStore();
-  const [decisionIndex, setDecisionIndex] = useState(0);
-
-  useEffect(() => {
-    const t = setInterval(
-      () => setDecisionIndex(p => (p + 1) % (decisions.length || 1)),
-      5000,
-    );
-    return () => clearInterval(t);
-  }, [decisions.length]);
-
-  const current = decisions[decisionIndex] || {
-    id: 'default',
-    action: 'BUY_SOL',
-    amount_pct: 12.4,
-    reasoning: 'Analyzing on-chain liquidity depth and whale movements for optimal entry…',
-    confidence: 0.88,
+  const current = {
+    id: 'illustrative-hold',
+    action: 'HOLD',
+    amount_pct: 0,
+    reasoning: 'Insufficient screening evidence. Fail-closed policy keeps the portfolio unchanged.',
+    confidence: 88,
     timestamp: new Date().toISOString(),
   };
 
@@ -126,9 +110,9 @@ function HeroSection() {
                 custom={2} variants={itemV} initial="hidden" animate="visible"
                 className="text-lg sm:text-xl text-text-secondary max-w-lg leading-relaxed font-light"
               >
-                The first truly autonomous AI agent that manages your capital with 
-                <span className="text-white font-medium"> verifiable on-chain reasoning</span>. 
-                Experience institutional-grade DeFi automation at machine speed.
+                An autonomous Solana agent constrained by a deterministic
+                <span className="text-white font-medium"> Shariah and risk policy pipeline</span>.
+                Every proposal and check is preserved in an explainable decision log.
               </motion.p>
             </div>
 
@@ -154,9 +138,9 @@ function HeroSection() {
               className="flex items-center gap-12 pt-4"
             >
               {[
-                { label: 'TVM', value: '$124.5M' },
-                { label: 'Avg APY', value: '18.2%' },
-                { label: 'Uptime', value: '99.99%' },
+                { label: 'Policy', value: 'v0.1' },
+                { label: 'Execution', value: 'Paused' },
+                { label: 'Network', value: 'Devnet' },
               ].map((stat) => (
                 <div key={stat.label}>
                   <div className="text-[10px] text-text-muted uppercase tracking-widest font-bold mb-1">{stat.label}</div>
@@ -178,20 +162,20 @@ function HeroSection() {
                     <Brain size={20} className="text-accent" />
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-white">Verifiable Reasoning</div>
-                    <div className="text-[10px] text-text-muted font-mono">CYCLE #28,194 ACTIVE</div>
+                    <div className="text-sm font-bold text-white">Illustrative Decision Trace</div>
+                    <div className="text-[10px] text-text-muted font-mono">SIMULATION PREVIEW</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 border border-accent/20">
                   <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-                  <span className="text-[10px] font-mono font-bold text-accent">ON-CHAIN</span>
+                  <span className="text-[10px] font-mono font-bold text-accent">NOT EXECUTED</span>
                 </div>
               </div>
 
               <div className="p-8 min-h-[340px] flex flex-col justify-between">
                 <AnimatePresence mode="wait">
                   <motion.div
-                    key={current.id || decisionIndex}
+                    key={current.id}
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20 }}
@@ -209,7 +193,7 @@ function HeroSection() {
                     </div>
 
                     <div className="space-y-3">
-                      <div className="text-[10px] text-text-muted uppercase tracking-widest font-bold">Inference Logic</div>
+                      <div className="text-[10px] text-text-muted uppercase tracking-widest font-bold">Decision Rationale</div>
                       <p className="text-lg text-white/90 leading-relaxed italic font-light">
                         "{current.reasoning}"
                       </p>
@@ -218,7 +202,7 @@ function HeroSection() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08]">
                         <div className="text-[10px] text-text-muted uppercase tracking-widest font-bold mb-1">Confidence</div>
-                        <div className="text-2xl font-bold text-white">{(current.confidence * 100).toFixed(1)}%</div>
+                        <div className="text-2xl font-bold text-white">{current.confidence.toFixed(1)}%</div>
                       </div>
                       <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08]">
                         <div className="text-[10px] text-text-muted uppercase tracking-widest font-bold mb-1">Impact</div>
@@ -230,16 +214,16 @@ function HeroSection() {
                 
                 <div className="mt-8 flex items-center justify-between pt-6 border-t border-white/[0.06]">
                   <div className="flex items-center gap-3">
-                    <div className="flex -space-x-3">
-                      {[1, 2, 3].map(i => (
-                        <div key={i} className="w-8 h-8 rounded-full border-2 border-bg-base bg-white/10 overflow-hidden">
-                          <img src={`https://i.pravatar.cc/100?u=${i}`} alt="user" className="w-full h-full object-cover" />
+                    <div className="flex -space-x-2" aria-hidden="true">
+                      {[Shield, Lock, Workflow].map((Icon, i) => (
+                        <div key={i} className="w-8 h-8 rounded-full border-2 border-bg-base bg-bg-elevated flex items-center justify-center text-accent">
+                          <Icon size={12} />
                         </div>
                       ))}
                     </div>
-                    <span className="text-[11px] text-text-muted font-medium">+4.2k vaults monitoring</span>
+                    <span className="text-[11px] text-text-muted font-medium">No live capital in this preview</span>
                   </div>
-                  <button className="text-[10px] font-bold text-accent hover:underline uppercase tracking-widest">Verify Ledger</button>
+                  <Link to="/decisions" className="text-[10px] font-bold text-accent hover:underline uppercase tracking-widest">View Decision Log</Link>
                 </div>
               </div>
             </div>
@@ -261,38 +245,38 @@ function HeroSection() {
 const features = [
   {
     icon: Brain,
-    title: "Autonomous Intelligence",
-    desc: "Not a bot, but a self-evolving agent. Solvex analyzes petabytes of data to execute strategies that adapt to market shifts instantly.",
+    title: "Structured AI Proposals",
+    desc: "The AI agent produces a typed portfolio proposal and rationale. It never bypasses the deterministic policy and risk checks.",
     color: "accent"
   },
   {
     icon: Shield,
-    title: "Verifiable On-Chain Reasoning",
-    desc: "Every decision is accompanied by a cryptographic proof of reasoning, ensuring full transparency and accountability for every move.",
+    title: "Explainable Decision Log",
+    desc: "Every proposal records its rationale, policy result, risk result, and transaction signature when an execution actually occurs.",
     color: "cta"
   },
   {
     icon: Zap,
-    title: "Solana-Native Speed",
-    desc: "Leveraging Solana's sub-second finality to capture alpha that others miss. From MEV protection to rapid liquidity routing.",
+    title: "Simulation Before Execution",
+    desc: "Transactions are simulated before approval. The execution boundary is designed for constrained spot swaps through Jupiter.",
     color: "solana"
   },
   {
     icon: Lock,
     title: "Non-Custodial Security",
-    desc: "Your funds never leave your vault. Solvex only has permission to execute trades within your pre-defined risk parameters.",
+    desc: "Funds remain in a per-user program vault. The delegated agent cannot withdraw and may only act within owner-defined limits.",
     color: "accent"
   },
   {
     icon: BarChart3,
-    title: "Predictive Analytics",
-    desc: "Advanced neural networks forecast volatility and volume peaks before they happen, positioning your capital ahead of the curve.",
+    title: "Deterministic Risk Limits",
+    desc: "Per-trade and daily caps are enforced independently from the model, with fail-closed behavior when inputs are unavailable or invalid.",
     color: "cta"
   },
   {
-    icon: Globe,
-    title: "Cross-Protocol Yield",
-    desc: "Seamlessly shifting between Kamino, Meteora, and Jupiter to find the highest risk-adjusted yield in the entire Solana ecosystem.",
+    icon: Workflow,
+    title: "Shariah Firewall",
+    desc: "Assets, protocols, and transaction types are classified Eligible, Review, or Blocked. Review cases are never auto-executed.",
     color: "solana"
   }
 ];
@@ -303,9 +287,9 @@ function FeaturesSection() {
       <div className="max-w-7xl mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-20">
           <SectionLabel>Core Architecture</SectionLabel>
-          <h2 className="text-4xl sm:text-5xl font-bold mb-6">Engineered for the next generation of finance.</h2>
+          <h2 className="text-4xl sm:text-5xl font-bold mb-6">A controlled path from proposal to execution.</h2>
           <p className="text-text-secondary leading-relaxed">
-            Solvex combines cutting-edge LLMs with high-performance blockchain infrastructure to bridge the gap between AI and DeFi.
+            Solvex separates AI analysis from deterministic Shariah policy, risk controls, and Solana execution.
           </p>
         </div>
 
@@ -342,31 +326,31 @@ function CTASection() {
       <div className="max-w-5xl mx-auto relative z-10 glass-card !bg-bg-card/80 !p-12 sm:!p-20 text-center border-white/10">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cta/10 border border-cta/20 text-cta mb-8">
           <Zap size={14} className="fill-current" />
-          <span className="text-[10px] font-bold tracking-widest uppercase">Limited Beta Access</span>
+          <span className="text-[10px] font-bold tracking-widest uppercase">Development Preview</span>
         </div>
         
         <h2 className="text-4xl sm:text-6xl font-bold mb-8 leading-tight">
-          Ready to put your <br />
-          <span className="text-accent">capital on autopilot?</span>
+          Explore policy-constrained <br />
+          <span className="text-accent">portfolio automation.</span>
         </h2>
         
         <p className="text-lg text-text-secondary max-w-xl mx-auto mb-12 font-light">
-          Join the waitlist to get early access to Solvex vaults. Deploy your first AI agent in under 60 seconds.
+          Connect a devnet wallet, define an investment cap, and inspect each decision before live execution is enabled.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button className="bg-cta text-white font-bold h-14 px-10 rounded-2xl hover:brightness-110 transition-all hover:scale-[1.02] shadow-[0_0_40px_rgba(139,92,246,0.3)]">
-            Join the Waitlist
-          </button>
-          <button className="border border-white/10 bg-white/5 text-white font-semibold h-14 px-10 rounded-2xl hover:bg-white/10 transition-all">
-            Join Discord
-          </button>
+          <Link to="/dashboard" className="inline-flex items-center justify-center bg-cta text-white font-bold h-14 px-10 rounded-2xl hover:brightness-110 transition-all hover:scale-[1.02] shadow-[0_0_40px_rgba(139,92,246,0.3)]">
+            Open Devnet App
+          </Link>
+          <Link to="/architecture" className="inline-flex items-center justify-center border border-white/10 bg-white/5 text-white font-semibold h-14 px-10 rounded-2xl hover:bg-white/10 transition-all">
+            Review Architecture
+          </Link>
         </div>
         
         <div className="mt-12 flex items-center justify-center gap-8 text-[10px] text-text-muted font-bold uppercase tracking-[0.2em]">
           <span className="flex items-center gap-2"><CheckCircle2 size={12} className="text-positive" /> Non-Custodial</span>
-          <span className="flex items-center gap-2"><CheckCircle2 size={12} className="text-positive" /> Audited</span>
-          <span className="flex items-center gap-2"><CheckCircle2 size={12} className="text-positive" /> Solana-Native</span>
+          <span className="flex items-center gap-2"><CheckCircle2 size={12} className="text-positive" /> Fail-Closed</span>
+          <span className="flex items-center gap-2"><CheckCircle2 size={12} className="text-positive" /> Devnet Preview</span>
         </div>
       </div>
     </section>
@@ -389,39 +373,30 @@ function Footer() {
               <span className="text-2xl font-bold tracking-tight">SOLVEX</span>
             </div>
             <p className="text-sm text-text-muted max-w-xs leading-relaxed font-light">
-              Autonomous AI asset management platform on Solana. 
-              Verifiable reasoning, institutional speed.
+              Policy-constrained AI asset management research project on Solana.
+              Transparent decisions, deterministic safety checks.
             </p>
-            <div className="flex items-center gap-4">
-              <a href="#" className="p-2 bg-white/5 rounded-lg text-text-secondary hover:text-white transition-colors"><Share2 size={18} /></a>
-              <a href="#" className="p-2 bg-white/5 rounded-lg text-text-secondary hover:text-white transition-colors"><MessageSquare size={18} /></a>
-              <a href="#" className="p-2 bg-white/5 rounded-lg text-text-secondary hover:text-white transition-colors"><Globe size={18} /></a>
-            </div>
           </div>
           
           {[
-            { title: 'Platform', links: ['Dashboard', 'Vaults', 'Agent Config', 'Analytics'] },
-            { title: 'Company', links: ['About', 'Whitepaper', 'Careers', 'Brand'] },
-            { title: 'Resources', links: ['Documentation', 'API Reference', 'Status', 'Security'] }
+            { title: 'Platform', links: [['Dashboard', '/dashboard'], ['Vault', '/vault'], ['Agent Config', '/agent-config'], ['Analytics', '/analytics']] },
+            { title: 'System', links: [['Architecture', '/architecture'], ['How It Works', '/how-it-works'], ['Decision Log', '/decisions']] },
+            { title: 'Resources', links: [['Documentation', '/docs'], ['Settings', '/settings']] }
           ].map((col) => (
             <div key={col.title}>
               <h4 className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-6">{col.title}</h4>
               <ul className="space-y-4">
-                {col.links.map(l => (
-                  <li key={l}><a href="#" className="text-sm text-text-secondary hover:text-accent transition-colors font-light">{l}</a></li>
+                {col.links.map(([label, path]) => (
+                  <li key={path}><Link to={path} className="text-sm text-text-secondary hover:text-accent transition-colors font-light">{label}</Link></li>
                 ))}
               </ul>
             </div>
           ))}
         </div>
         
-        <div className="mt-20 pt-8 border-t border-white/5 flex flex-col sm:row justify-between items-center gap-6">
-          <p className="text-[11px] text-text-muted">© 2026 Solvex Labs Inc. All rights reserved.</p>
-          <div className="flex gap-8">
-            <a href="#" className="text-[11px] text-text-muted hover:text-white">Privacy Policy</a>
-            <a href="#" className="text-[11px] text-text-muted hover:text-white">Terms of Service</a>
-            <a href="#" className="text-[11px] text-text-muted hover:text-white">Cookie Policy</a>
-          </div>
+        <div className="mt-20 pt-8 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-6">
+          <p className="text-[11px] text-text-muted">Solvex devnet research preview · Not financial or Shariah advice.</p>
+          <Link to="/docs" className="text-[11px] text-text-muted hover:text-white">Read the methodology and limitations</Link>
         </div>
       </div>
     </footer>

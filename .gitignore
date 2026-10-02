@@ -6,7 +6,16 @@ coverage/
 *.log
 .env*
 !.env.example
+.venv/
+*.egg-info/
+chain/target/
+chain/.anchor/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+*.db
+backend/.env
 .cursor/
 goats/
 __MACOSX/
-

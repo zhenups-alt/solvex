@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Shield, 
   Cpu, 
@@ -13,19 +13,69 @@ import {
   Save
 } from 'lucide-react';
 import { Card, Button, Badge } from '../components/UI';
-import { useStore } from '../store';
+import { AgentConfig, useStore } from '../store';
 import { cn } from '../lib/utils';
+import { usePhantom } from '../components/WalletContextProvider';
+import { getRiskProfile, saveRiskProfile } from '../lib/solvexApi';
+import { toast } from 'sonner';
 
 export default function AgentConfigPage() {
   const [activeSection, setActiveSection] = useState('strategy');
+  const [saving, setSaving] = useState(false);
   const { config, updateConfig } = useStore();
+  const { address } = usePhantom();
+
+  useEffect(() => {
+    if (!address) return;
+    getRiskProfile(address)
+      .then((profile) => {
+        const profileName = `${profile.risk_level[0].toUpperCase()}${profile.risk_level.slice(1)}` as AgentConfig['profile'];
+        updateConfig({
+          profile: profileName,
+          investmentCapUsd: Number(profile.investment_cap_usd),
+          maxSingleTradeUsd: Number(profile.max_single_trade_usd),
+          maxDailyTurnoverUsd: Number(profile.max_daily_turnover_usd),
+          slippageTolerance: profile.max_slippage_bps / 100,
+          maxDrawdownPct: Number(profile.max_drawdown_pct),
+        });
+      })
+      .catch((error) => {
+        if (!error.message.includes('profile not found')) {
+          toast.error('Could not load risk profile', { description: error.message });
+        }
+      });
+  }, [address, updateConfig]);
+
+  const handleSaveRisk = async () => {
+    if (!address) {
+      toast.error('Connect your wallet before saving limits');
+      return;
+    }
+    if (config.maxSingleTradeUsd > config.investmentCapUsd) {
+      toast.error('Per-trade limit cannot exceed the investment cap');
+      return;
+    }
+    setSaving(true);
+    try {
+      await saveRiskProfile(address, config);
+      toast.success('Risk limits saved', {
+        description: `The agent cannot manage more than $${config.investmentCapUsd.toLocaleString()}.`,
+      });
+    } catch (error) {
+      toast.error('Could not save risk limits', {
+        description: error instanceof Error ? error.message : 'Unknown API error',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const sections = [
     { id: 'strategy', name: 'Strategy Profile', icon: Activity },
     { id: 'risk', name: 'Risk Parameters', icon: Shield },
     { id: 'model', name: 'AI Model Settings', icon: Brain },
     { id: 'data', name: 'Market Data Sources', icon: Cpu },
-    { id: 'prompt', name: 'Claude System Prompt', icon: Settings2 },
+    { id: 'prompt', name: 'AI Proposal Policy', icon: Settings2 },
     { id: 'execution', name: 'Execution Rules', icon: Zap },
     { id: 'notifications', name: 'Notifications', icon: Bell },
     { id: 'keypair', name: 'Agent Keypair', icon: Key },
@@ -35,7 +85,7 @@ export default function AgentConfigPage() {
     <div className="p-8 space-y-8">
       <header>
         <h1 className="text-2xl font-bold text-text-primary">Agent Configuration</h1>
-        <p className="text-text-secondary mt-1">Configure how Claude manages your vault.</p>
+        <p className="text-text-secondary mt-1">Configure the hard limits around autonomous vault management.</p>
       </header>
 
       <div className="grid grid-cols-[240px,1fr] gap-8">
@@ -74,7 +124,7 @@ export default function AgentConfigPage() {
                 {[
                   { id: 'Conservative', label: 'Low Activity', trigger: '3σ', max: '5%', desc: 'Capital preservation with minimal fees.' },
                   { id: 'Balanced', label: 'Recommended', trigger: '2σ', max: '15%', desc: 'Balanced between responsiveness and stability.' },
-                  { id: 'Aggressive', label: 'High Activity', trigger: '1σ', max: '30%', desc: 'Maximum responsiveness to market conditions.' },
+                  { id: 'Growth', label: 'High Activity', trigger: '1σ', max: '30%', desc: 'Higher activity while remaining inside hard policy limits.' },
                 ].map((profile) => (
                   <button
                     key={profile.id}
@@ -109,47 +159,43 @@ export default function AgentConfigPage() {
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div>
                 <h2 className="text-lg font-semibold text-text-primary">Risk Parameters</h2>
-                <p className="text-sm text-text-secondary mt-1">Fine-tune the boundaries within which Claude is allowed to operate.</p>
+                <p className="text-sm text-text-secondary mt-1">Fine-tune the boundaries within which the AI agent is allowed to operate.</p>
               </div>
 
               <Card className="p-8 space-y-8">
                 <div className="space-y-6">
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted">Position Limits</h3>
-                  <div className="space-y-6">
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <label className="text-sm font-medium">Max SOL Allocation</label>
-                        <span className="text-sm font-mono text-accent">{config.maxSolAllocation}%</span>
-                      </div>
-                      <input 
-                        type="range" 
-                        min="0" max="100" 
-                        value={config.maxSolAllocation}
-                        onChange={(e) => updateConfig({ maxSolAllocation: parseInt(e.target.value) })}
-                        className="w-full h-1.5 bg-bg-elevated rounded-lg appearance-none cursor-pointer accent-accent"
-                      />
-                      <p className="text-xs text-text-muted">Never hold more than {config.maxSolAllocation}% of vault value in SOL.</p>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <label className="text-sm font-medium">Min USDC Reserve</label>
-                        <span className="text-sm font-mono text-accent">{config.minUsdcReserve}%</span>
-                      </div>
-                      <input 
-                        type="range" 
-                        min="0" max="50" 
-                        value={config.minUsdcReserve}
-                        onChange={(e) => updateConfig({ minUsdcReserve: parseInt(e.target.value) })}
-                        className="w-full h-1.5 bg-bg-elevated rounded-lg appearance-none cursor-pointer accent-accent"
-                      />
-                      <p className="text-xs text-text-muted">Always keep at least {config.minUsdcReserve}% in USDC for stability.</p>
-                    </div>
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-text-muted">Hard Agent Limits</h3>
+                  <p className="text-xs text-text-muted">These limits are evaluated by the deterministic Risk Engine. The AI model cannot override them.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {([
+                      { key: 'investmentCapUsd', label: 'Investment cap', help: 'Maximum principal delegated to the autonomous vault.' },
+                      { key: 'maxSingleTradeUsd', label: 'Maximum single trade', help: 'Maximum USD value of one rebalance operation.' },
+                      { key: 'maxDailyTurnoverUsd', label: 'Daily turnover cap', help: 'Maximum total traded value during 24 hours.' },
+                      { key: 'maxDrawdownPct', label: 'Maximum drawdown', help: 'New buys stop after this drawdown; de-risking sells remain available.' },
+                    ] as const).map((field) => (
+                      <label key={field.key} className="space-y-2 rounded-lg border border-border-subtle bg-bg-elevated/50 p-4">
+                        <span className="text-sm font-medium">{field.label}</span>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">{field.key === 'maxDrawdownPct' ? '%' : '$'}</span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={config[field.key]}
+                            onChange={(event) => updateConfig({ [field.key]: Number(event.target.value) } as Partial<AgentConfig>)}
+                            className="w-full h-11 rounded-md border border-border-default bg-bg-base pl-8 pr-3 font-mono text-sm focus:outline-none focus:border-accent"
+                          />
+                        </div>
+                        <span className="block text-xs text-text-muted">{field.help}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
 
                 <div className="pt-8 border-t border-border-subtle">
-                  <Button className="gap-2"><Save size={16} /> Save Risk Parameters</Button>
+                  <Button disabled={saving || !address} onClick={handleSaveRisk} className="gap-2">
+                    <Save size={16} /> {saving ? 'Saving…' : 'Save Enforced Limits'}
+                  </Button>
+                  {!address && <p className="text-xs text-warning mt-3">Connect Phantom to bind these limits to your vault profile.</p>}
                 </div>
               </Card>
             </div>
@@ -158,46 +204,37 @@ export default function AgentConfigPage() {
           {activeSection === 'prompt' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div>
-                <h2 className="text-lg font-semibold text-text-primary">Claude System Prompt</h2>
-                <p className="text-sm text-text-secondary mt-1">Customize the instructions sent to Claude before every analysis.</p>
+                <h2 className="text-lg font-semibold text-text-primary">AI Proposal Policy</h2>
+                <p className="text-sm text-text-secondary mt-1">The model may propose actions, but deterministic engines make every approval decision.</p>
               </div>
 
               <Card className="p-0 overflow-hidden">
                 <textarea 
                   className="w-full h-[400px] bg-bg-elevated p-6 font-mono text-sm text-text-secondary focus:outline-none focus:text-text-primary leading-relaxed resize-none"
-                  defaultValue={`You are Solvex, an autonomous DeFi asset management AI running on Solana.
+                  readOnly
+                  defaultValue={`You are the Solvex portfolio analysis component running on Solana.
 
-Your role is to analyze market data and make allocation decisions for a SOL/USDC vault, strictly within the risk parameters defined by the vault owner.
+Your role is to analyze market data and produce one structured portfolio proposal.
+You do not approve Shariah compliance, risk, simulation, or execution.
+Never claim that an asset is halal. Prefer HOLD when evidence is incomplete.
 
 DECISION FRAMEWORK:
 1. Analyze the provided market data (price, volatility, volume, liquidity)
 2. Consider the vault's current allocation and target allocation
 3. Evaluate whether current conditions warrant a rebalance
-4. Apply the configured risk profile constraints
-5. Produce a structured decision with clear reasoning
-
-OUTPUT FORMAT (respond ONLY with this JSON):
-{
-  "action": "BUY_SOL" | "SELL_SOL" | "HOLD",
-  "amount_pct": <number 0-100>,
-  "confidence": <number 0-1>,
-  "reasoning": "<full natural language reasoning>",
-  "key_signals": ["<signal 1>", "<signal 2>"]
-}`}
+4. Produce a structured proposal with explicit leverage, derivative, and interest flags
+5. Allow the deterministic Shariah and Risk engines to accept or reject it`}
                 />
                 <div className="p-4 border-t border-border-subtle flex justify-between items-center bg-bg-card">
-                  <button className="text-xs text-text-muted hover:text-text-primary transition-colors">Reset to Default</button>
-                  <div className="flex gap-3">
-                    <Button variant="outline" size="sm">Test Prompt</Button>
-                    <Button size="sm">Save Prompt</Button>
-                  </div>
+                  <span className="text-xs text-text-muted">Enforced server-side · version controlled</span>
+                  <Badge variant="accent">gpt-6-astra</Badge>
                 </div>
               </Card>
               
               <div className="flex items-start gap-3 p-4 bg-info-dim/10 border border-info-dim rounded-md">
                 <Info size={16} className="text-info mt-0.5 shrink-0" />
                 <p className="text-xs text-info leading-relaxed">
-                  Changes to the system prompt are not written on-chain. They are stored locally and sent with each API call to the Claude model.
+                  The model output is constrained by a JSON schema. It is always treated as an untrusted proposal and cannot bypass the Shariah Firewall or Risk Engine.
                 </p>
               </div>
             </div>

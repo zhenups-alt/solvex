@@ -19,7 +19,11 @@ export interface Decision {
 }
 
 export interface AgentConfig {
-  profile: 'Conservative' | 'Balanced' | 'Aggressive';
+  profile: 'Conservative' | 'Balanced' | 'Growth';
+  investmentCapUsd: number;
+  maxSingleTradeUsd: number;
+  maxDailyTurnoverUsd: number;
+  maxDrawdownPct: number;
   maxSolAllocation: number;
   minUsdcReserve: number;
   maxSingleRebalance: number;
@@ -36,43 +40,52 @@ export interface AgentConfig {
 interface AppState {
   isDemoMode: boolean;
   setDemoMode: (val: boolean) => void;
-  walletAddress: string | null;
-  setWalletAddress: (addr: string | null) => void;
-  vaultBalance: { sol: number; usdc: number };
   decisions: Decision[];
   config: AgentConfig;
   updateConfig: (newConfig: Partial<AgentConfig>) => void;
   addDecision: (decision: Decision) => void;
 }
 
+const DEFAULT_CONFIG: AgentConfig = {
+  profile: 'Balanced',
+  investmentCapUsd: 1000,
+  maxSingleTradeUsd: 100,
+  maxDailyTurnoverUsd: 300,
+  maxDrawdownPct: 10,
+  maxSolAllocation: 80,
+  minUsdcReserve: 20,
+  maxSingleRebalance: 15,
+  cycleFrequency: '5 min',
+  cooldown: '1 hour',
+  slippageTolerance: 0.5,
+  minLiquidity: '$50k+',
+  deviationTrigger: 2,
+  model: 'gpt-6-astra',
+  reasoningDepth: 50,
+  temperature: 0.3,
+};
+
 export const useStore = create<AppState>()(
   persist(
     (set) => ({
-      isDemoMode: true,
+      isDemoMode: false,
       setDemoMode: (val) => set({ isDemoMode: val }),
-      walletAddress: null,
-      setWalletAddress: (addr) => set({ walletAddress: addr }),
-      vaultBalance: { sol: 0.872, usdc: 615.20 },
       decisions: [],
-      config: {
-        profile: 'Balanced',
-        maxSolAllocation: 80,
-        minUsdcReserve: 20,
-        maxSingleRebalance: 15,
-        cycleFrequency: '5 min',
-        cooldown: '1 hour',
-        slippageTolerance: 0.5,
-        minLiquidity: '$50k+',
-        deviationTrigger: 2,
-        model: 'claude-sonnet-4-20250514',
-        reasoningDepth: 50,
-        temperature: 0.3,
-      },
+      config: DEFAULT_CONFIG,
       updateConfig: (newConfig) => set((state) => ({ config: { ...state.config, ...newConfig } })),
       addDecision: (decision) => set((state) => ({ decisions: [decision, ...state.decisions] })),
     }),
     {
       name: 'solvex-storage',
+      merge: (persisted, current) => {
+        const saved = persisted as Partial<AppState> | undefined;
+        return {
+          ...current,
+          ...saved,
+          isDemoMode: false,
+          config: { ...DEFAULT_CONFIG, ...saved?.config },
+        };
+      },
     }
   )
 );

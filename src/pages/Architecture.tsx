@@ -1,23 +1,23 @@
 import React from 'react';
-import { Cpu, Code, Database, Shield, ArrowRight, Layers } from 'lucide-react';
-import { Card, Badge } from '../components/UI';
+import { Code, ArrowRight } from 'lucide-react';
+import { Card } from '../components/UI';
 
 export default function ArchitecturePage() {
   return (
     <div className="p-8 space-y-12">
       <header>
         <h1 className="text-2xl font-bold text-text-primary">System Architecture</h1>
-        <p className="text-text-secondary mt-1">How Claude AI and Solana work together to create an autonomous DeFi vault.</p>
+        <p className="text-text-secondary mt-1">How untrusted AI proposals pass through deterministic policy and risk controls before Solana execution.</p>
       </header>
 
       {/* System Diagram */}
       <section className="space-y-6">
         <div className="grid grid-cols-1 gap-4">
           {[
-            { layer: 'Frontend', border: 'border-info', items: ['Next.js Dashboard', 'Strategy Builder', 'Decision Log', 'Analytics'] },
-            { layer: 'AI Agent Layer', border: 'border-accent', items: ['Claude Agent (OpenClaw MCP)', 'Decision Engine', 'Transaction Builder'] },
-            { layer: 'Solana Programs', border: 'border-solana', items: ['Vault Anchor Program', 'DecisionRecord Store', 'Jupiter DEX (CPI)'] },
-            { layer: 'Data Layer', border: 'border-info', items: ['Pyth Oracle', 'On-chain State', 'CoinGecko API', 'DeFiLlama'] },
+            { layer: 'Client', border: 'border-info', items: ['React + Vite', 'Phantom Wallet', 'Risk Configuration', 'Decision Log'] },
+            { layer: 'Backend', border: 'border-accent', items: ['FastAPI', 'OpenAI Proposal Adapter', 'Shariah Policy Engine', 'Risk Engine'] },
+            { layer: 'Execution Boundary', border: 'border-solana', items: ['Simulation Gate', 'Jupiter v6 CPI', 'Agent Signer', 'Fail-Closed Status'] },
+            { layer: 'Persistence + Chain', border: 'border-info', items: ['PostgreSQL / SQLAlchemy', 'Per-User Vault PDA', 'SPL Token Custody', 'Decision Hash Event'] },
           ].map((row, i) => (
             <div key={i} className="relative">
               <Card className={cn("border-l-4 p-6", row.border)}>
@@ -49,18 +49,18 @@ export default function ArchitecturePage() {
           {[
             {
               fn: 'initialize_vault',
-              code: 'pub fn initialize_vault(\n    ctx: Context<InitializeVault>,\n    risk_profile: RiskProfile,\n    agent_key: Pubkey,\n) -> Result<()>',
-              desc: 'Creates the vault PDA. Stores owner, agent keypair, risk profile, initial balances.'
+              code: 'pub fn initialize_vault(\n    ctx: Context<InitializeVault>,\n    agent: Pubkey,\n    limits: VaultLimits,\n) -> Result<()>',
+              desc: 'Creates a per-owner vault PDA and its base/quote custody accounts. Every new vault starts paused.'
             },
             {
-              fn: 'execute_rebalance',
-              code: 'pub fn execute_rebalance(\n    ctx: Context<ExecuteRebalance>,\n    reasoning_hash: [u8; 32],\n    action: ActionType,\n    amount_bps: u64,\n) -> Result<()>',
-              desc: 'Core on-chain AI action. Only callable by the registered agent keypair. Validates parameters and appends a DecisionRecord.'
+              fn: 'execute_jupiter_swap',
+              code: 'pub fn execute_jupiter_swap(\n    ctx: Context<ExecuteJupiterSwap>,\n    args: SwapArgs,\n    instruction_data: Vec<u8>,\n) -> Result<()>',
+              desc: 'Allows only the configured agent, canonical Jupiter v6 program, configured pair, fresh quote, and trades inside hard limits.'
             },
             {
-              fn: 'withdraw',
-              code: 'pub fn withdraw(\n    ctx: Context<Withdraw>,\n    amount: u64,\n    token: TokenType,\n) -> Result<()>',
-              desc: 'Vault owner can withdraw SOL or USDC. Includes a check that the agent is not mid-execution.'
+              fn: 'withdraw_base / withdraw_quote',
+              code: 'pub fn withdraw_base(\n    ctx: Context<WithdrawBase>,\n    amount: u64,\n) -> Result<()>',
+              desc: 'Only the vault owner can withdraw. The delegated agent is intentionally unable to transfer assets to arbitrary recipients.'
             }
           ].map((item, i) => (
             <Card key={i} className="space-y-4">
@@ -91,11 +91,11 @@ export default function ArchitecturePage() {
             </thead>
             <tbody className="divide-y divide-border-subtle">
               {[
-                { layer: 'Smart Contract', tech: 'Anchor (Rust) on Solana', role: 'Vault state + decision recording' },
-                { layer: 'AI Model', tech: 'Claude Sonnet via Anthropic API', role: 'Market reasoning and action selection' },
-                { layer: 'Agent Framework', tech: 'OpenClaw MCP', role: 'Tool orchestration for Claude' },
-                { layer: 'DEX Integration', tech: 'Jupiter Aggregator v6', role: 'Best-execution swap routing' },
-                { layer: 'Price Oracle', tech: 'Pyth Network', role: 'Real-time SOL/USDC feeds' },
+                { layer: 'Smart Contract', tech: 'Anchor 0.31.1 / Rust', role: 'Vault custody and on-chain execution constraints' },
+                { layer: 'AI Adapter', tech: 'OpenAI Responses API', role: 'Schema-constrained portfolio proposals' },
+                { layer: 'Backend', tech: 'Python / FastAPI / SQLAlchemy', role: 'Policy, risk, orchestration, and audit trail' },
+                { layer: 'Database', tech: 'PostgreSQL', role: 'Profiles and explainable decision records' },
+                { layer: 'DEX Boundary', tech: 'Jupiter v6 CPI', role: 'Constrained base/quote spot swap execution' },
               ].map((row, i) => (
                 <tr key={i} className="text-sm">
                   <td className="px-6 py-4 text-text-primary font-medium">{row.layer}</td>

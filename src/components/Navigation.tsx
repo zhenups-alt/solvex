@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -18,14 +18,21 @@ import {
   LogOut,
   Cpu
 } from 'lucide-react';
-import { useStore } from '../store';
 import { cn, truncateAddress } from '../lib/utils';
 import { Button } from './UI';
+import { usePhantom } from './WalletContextProvider';
+import { toast } from 'sonner';
 
 export const TopNav = () => {
-  const { isDemoMode, setDemoMode, walletAddress, setWalletAddress } = useStore();
+  const { address, connected, connecting, connect, disconnect, network } = usePhantom();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
+
+  const copyAddress = async () => {
+    if (!address) return;
+    await navigator.clipboard.writeText(address);
+    toast.success('Wallet address copied');
+  };
 
   const navLinks = [
     { name: 'Home', path: '/' },
@@ -79,26 +86,26 @@ export const TopNav = () => {
         <div className="flex items-center gap-2 pr-1">
 
 
-          {walletAddress ? (
+          {connected && address ? (
             <div className="relative group">
               <Button variant="secondary" size="sm" className="h-9 px-4 gap-2 bg-white/5 border-white/10 hover:bg-white/10 rounded-xl">
                 <Wallet size={14} className="text-accent" />
-                <span className="font-mono text-[13px]">{truncateAddress(walletAddress)}</span>
+                <span className="font-mono text-[13px]">{truncateAddress(address)}</span>
                 <ChevronDown size={14} className="text-text-muted" />
               </Button>
               <div className="absolute right-0 top-[calc(100%+8px)] w-60 bg-bg-elevated/95 backdrop-blur-2xl border border-white/10 rounded-xl shadow-[0_16px_32px_-8px_rgba(0,0,0,0.5)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 p-2 z-[60] origin-top">
                 <div className="p-3 border-b border-white/5 mb-2">
                   <div className="text-[10px] text-text-muted uppercase tracking-widest font-bold mb-2">Connected Wallet</div>
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-[13px] text-text-primary">{truncateAddress(walletAddress)}</span>
+                    <span className="font-mono text-[13px] text-text-primary">{truncateAddress(address)}</span>
                     <div className="flex gap-1">
-                      <button className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-text-secondary hover:text-text-primary"><Copy size={14} /></button>
-                      <button className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-text-secondary hover:text-text-primary"><ExternalLink size={14} /></button>
+                      <button onClick={copyAddress} aria-label="Copy wallet address" className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-text-secondary hover:text-text-primary"><Copy size={14} /></button>
+                      <a href={`https://explorer.solana.com/address/${address}?cluster=${network}`} target="_blank" rel="noreferrer" aria-label="Open wallet in Solana Explorer" className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-text-secondary hover:text-text-primary"><ExternalLink size={14} /></a>
                     </div>
                   </div>
                 </div>
                 <button 
-                  onClick={() => setWalletAddress(null)}
+                  onClick={disconnect}
                   className="w-full flex items-center justify-center gap-2 p-2.5 text-[13px] font-semibold text-negative hover:bg-negative/10 rounded-lg transition-colors"
                 >
                   <LogOut size={14} />
@@ -107,8 +114,8 @@ export const TopNav = () => {
               </div>
             </div>
           ) : (
-            <Button size="sm" className="h-9 px-5 rounded-xl text-[13px] font-medium shadow-[0_0_20px_-8px_rgba(var(--color-accent),0.5)]" onClick={() => setWalletAddress('5xK9JmPQxyz8Rttm3nP3Q')}>
-              Connect
+            <Button size="sm" disabled={connecting} className="h-9 px-5 rounded-xl text-[13px] font-medium shadow-[0_0_20px_-8px_rgba(var(--color-accent),0.5)]" onClick={connect}>
+              {connecting ? 'Connecting…' : 'Connect wallet'}
             </Button>
           )}
 
@@ -217,27 +224,27 @@ export const Sidebar = () => {
         ))}
       </div>
       
-      {/* Agent Status Panel */}
+      {/* Execution status */}
       <div className="p-4 border-t border-white/5">
         <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <div className="text-[11px] font-bold text-text-primary uppercase tracking-wider">Agent Status</div>
+            <div className="text-[11px] font-bold text-text-primary uppercase tracking-wider">Execution Status</div>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-accent animate-pulse-accent" />
-              <span className="text-[10px] text-accent font-mono font-bold uppercase">Live</span>
+              <div className="w-2 h-2 rounded-full bg-warning" />
+              <span className="text-[10px] text-warning font-mono font-bold uppercase">Locked</span>
             </div>
           </div>
           <div className="space-y-2">
             <div className="flex justify-between text-[11px]">
-              <span className="text-text-muted">Next cycle:</span>
-              <span className="text-text-secondary font-mono">4m 46s</span>
+              <span className="text-text-muted">Mode:</span>
+              <span className="text-text-secondary font-mono">Simulation</span>
             </div>
             <div className="flex justify-between text-[11px]">
               <span className="text-text-muted">Model:</span>
-              <span className="text-text-secondary">Claude 3.5</span>
+              <span className="text-text-secondary">gpt-6-astra</span>
             </div>
           </div>
-          <Button variant="outline" size="sm" className="w-full h-8 text-[11px] font-bold border-white/10 hover:bg-white/5">Pause Agent</Button>
+          <Button disabled variant="outline" size="sm" className="w-full h-8 text-[11px] font-bold border-positive/20 text-positive">Program live · swaps locked</Button>
         </div>
       </div>
     </aside>

@@ -6,7 +6,7 @@
  */
 
 import React, { FC, ReactNode, createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Connection, PublicKey, clusterApiUrl, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { Connection, PublicKey, SystemProgram, Transaction, clusterApiUrl, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { toast } from 'sonner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -49,7 +49,6 @@ function getPhantom(): any {
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children }) => {
-  const apiBase = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8080';
   const [network, setNetworkState] = useState<SolanaNetwork>('devnet');
   const [connection, setConnection] = useState<Connection>(
     new Connection(clusterApiUrl('devnet'), 'confirmed')
@@ -60,57 +59,6 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
   const [balance, setBalance] = useState<number | null>(null);
 
   const address = publicKey?.toBase58() ?? null;
-
-  const syncWalletWithBackend = useCallback(
-    async (walletAddress: string) => {
-      const phantom = getPhantom();
-      if (!phantom) return;
-      if (network !== 'devnet') return;
-
-      try {
-        const challengeRes = await fetch(`${apiBase}/api/wallets/challenge`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ address: walletAddress }),
-        });
-        const challengeData = await challengeRes.json();
-        if (!challengeRes.ok || !challengeData?.message) {
-          throw new Error(challengeData?.error || 'Failed to request backend challenge');
-        }
-
-        const encoded = new TextEncoder().encode(challengeData.message);
-        const { signature } = await phantom.signMessage(encoded, 'utf8');
-        const bs58 = await import('bs58');
-        const signatureBase58 = bs58.default.encode(signature);
-
-        const registerRes = await fetch(`${apiBase}/api/wallets/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            address: walletAddress,
-            message: challengeData.message,
-            signature: signatureBase58,
-          }),
-        });
-        if (!registerRes.ok) {
-          const body = await registerRes.json().catch(() => ({}));
-          throw new Error(body?.error || 'Failed to register wallet');
-        }
-
-        const syncRes = await fetch(`${apiBase}/api/wallets/${walletAddress}/sync?txLimit=20`, {
-          method: 'POST',
-        });
-        if (!syncRes.ok) {
-          const body = await syncRes.json().catch(() => ({}));
-          throw new Error(body?.error || 'Failed to sync wallet');
-        }
-      } catch (err: any) {
-        console.error('[Wallet] Backend sync failed:', err);
-        toast.error('Wallet sync failed', { description: err.message || 'Could not sync with backend.' });
-      }
-    },
-    [apiBase, network]
-  );
 
   // ─── Set network ───────────────────────────────────────────────────────────
 
@@ -153,9 +101,6 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
         setConnected(true);
         console.log('[Wallet] Auto-reconnected:', pk.toBase58());
         fetchBalance(pk, connection);
-        syncWalletWithBackend(pk.toBase58()).catch((err) => {
-          console.error('[Wallet] Auto reconnect backend sync failed:', err);
-        });
       })
       .catch(() => {
         console.log('[Wallet] No trusted session found (first visit).');
@@ -189,7 +134,7 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
       phantom.off('disconnect', handleDisconnectEvent);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connection, fetchBalance, syncWalletWithBackend]);
+  }, [connection, fetchBalance]);
 
   // ─── Refetch balance when network changes ──────────────────────────────────
 
@@ -228,7 +173,6 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
       console.log('[Wallet] Connected! Address:', pk.toBase58());
       toast.success('Wallet connected!', { description: pk.toBase58().slice(0, 8) + '...' });
       await fetchBalance(pk, connection);
-      await syncWalletWithBackend(pk.toBase58());
     } catch (err: any) {
       console.error('[Wallet] Connect error:', err);
       if (err.code === 4001) {
@@ -239,21 +183,7 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
     } finally {
       setConnecting(false);
     }
-  }, [connection, fetchBalance, syncWalletWithBackend]);
-
-  useEffect(() => {
-    if (!address || !connected || network !== 'devnet') return;
-
-    const interval = window.setInterval(() => {
-      fetch(`${apiBase}/api/wallets/${address}/sync?txLimit=20`, {
-        method: 'POST',
-      }).catch((err) => {
-        console.error('[Wallet] Background sync failed:', err);
-      });
-    }, 30000);
-
-    return () => window.clearInterval(interval);
-  }, [address, connected, apiBase, network]);
+  }, [connection, fetchBalance]);
 
   // ─── Disconnect ────────────────────────────────────────────────────────────
 
@@ -311,7 +241,6 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
     }
 
     try {
-      const { Transaction, SystemProgram } = await import('@solana/web3.js');
       const toPubKey = new PublicKey(recipient);
       const lamports = Math.round(amountSol * LAMPORTS_PER_SOL);
 

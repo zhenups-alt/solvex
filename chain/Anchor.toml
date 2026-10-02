@@ -1,0 +1,23 @@
+[toolchain]
+anchor_version = "0.31.1"
+solana_version = "2.1.0"
+
+[features]
+seeds = false
+skip-lint = false
+
+[programs.localnet]
+solvex_vault = "8oi1inxaWoWmY7FjEEERuCdbGdCQpfgAg2KHyXFYAkP8"
+
+[programs.devnet]
+solvex_vault = "8oi1inxaWoWmY7FjEEERuCdbGdCQpfgAg2KHyXFYAkP8"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "devnet"
+wallet = "target/deploy/solvex-deployer-keypair.json"
+
+[scripts]
+test = "cargo test --workspace"

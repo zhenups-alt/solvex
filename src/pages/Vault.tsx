@@ -1,200 +1,119 @@
-import React, { useState } from 'react';
-import { Wallet, ArrowDown, ArrowUp, History, Copy, ExternalLink } from 'lucide-react';
-import { Card, Button, Badge } from '../components/UI';
+import { useEffect, useMemo, useState } from 'react';
+import { Copy, ExternalLink, LockKeyhole, PauseCircle, ShieldCheck } from 'lucide-react';
+import { PublicKey } from '@solana/web3.js';
+import { toast } from 'sonner';
+import { Badge, Button, Card } from '../components/UI';
+import { usePhantom } from '../components/WalletContextProvider';
+import { truncateAddress } from '../lib/utils';
 import { useStore } from '../store';
-import { truncateAddress, formatCurrency } from '../lib/utils';
+
+const PROGRAM_ID = new PublicKey('8oi1inxaWoWmY7FjEEERuCdbGdCQpfgAg2KHyXFYAkP8');
 
 export default function VaultPage() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const { address, connection, network } = usePhantom();
+  const { config } = useStore();
+  const [programDeployed, setProgramDeployed] = useState(false);
+  const [vaultCreated, setVaultCreated] = useState(false);
+
+  const vaultAddress = useMemo(() => {
+    if (!address) return null;
+    return PublicKey.findProgramAddressSync(
+      [new TextEncoder().encode('vault'), new PublicKey(address).toBytes()],
+      PROGRAM_ID,
+    )[0];
+  }, [address]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      connection.getAccountInfo(PROGRAM_ID),
+      vaultAddress ? connection.getAccountInfo(vaultAddress) : Promise.resolve(null),
+    ]).then(([program, vault]) => {
+      if (cancelled) return;
+      setProgramDeployed(Boolean(program?.executable));
+      setVaultCreated(Boolean(vault));
+    }).catch(() => {
+      if (!cancelled) {
+        setProgramDeployed(false);
+        setVaultCreated(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [connection, vaultAddress]);
+
+  const copy = async (value: string) => {
+    await navigator.clipboard.writeText(value);
+    toast.success('Address copied');
+  };
+
+  const explorer = (value: string) => `https://explorer.solana.com/address/${value}?cluster=${network}`;
 
   return (
     <div className="p-8 space-y-8">
       <header>
-        <h1 className="text-2xl font-bold text-text-primary">Vault Management</h1>
-        <p className="text-text-secondary mt-1">Manage your assets and view vault performance.</p>
+        <h1 className="text-2xl font-bold text-text-primary">Vault</h1>
+        <p className="text-text-secondary mt-1">Per-user custody controlled by your wallet and hard on-chain limits.</p>
       </header>
 
-      <div className="flex gap-1 border-b border-border-subtle">
-        {['overview', 'manage', 'history'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={cn(
-              "px-6 py-3 text-sm font-medium transition-all border-b-2 capitalize",
-              activeTab === tab ? "border-accent text-text-primary" : "border-transparent text-text-muted hover:text-text-secondary"
-            )}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'overview' && (
-        <div className="space-y-6">
-          <Card className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 p-8">
-            <div className="space-y-4">
-              <div>
-                <div className="text-[11px] text-text-muted uppercase tracking-wider mb-1">Vault Address</div>
-                <div className="flex items-center gap-2 font-mono text-sm text-text-primary">
-                  <span>HN3x8mPQ...2R9s</span>
-                  <Copy size={14} className="text-text-muted cursor-pointer hover:text-accent" />
-                  <ExternalLink size={14} className="text-text-muted cursor-pointer hover:text-accent" />
-                </div>
-              </div>
-              <div>
-                <div className="text-[11px] text-text-muted uppercase tracking-wider mb-1">Risk Profile</div>
-                <Badge variant="accent">Balanced</Badge>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <div className="text-[11px] text-text-muted uppercase tracking-wider mb-1">Program ID</div>
-                <div className="flex items-center gap-2 font-mono text-sm text-text-primary">
-                  <span>SAgnt...Vlt8</span>
-                  <Copy size={14} className="text-text-muted cursor-pointer hover:text-accent" />
-                </div>
-              </div>
-              <div>
-                <div className="text-[11px] text-text-muted uppercase tracking-wider mb-1">Created</div>
-                <span className="text-sm text-text-primary">2026-04-01 09:14 UTC</span>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <div className="text-[11px] text-text-muted uppercase tracking-wider mb-1">Owner</div>
-                <span className="text-sm text-text-primary font-mono">5xK9...m3nP</span>
-              </div>
-              <div>
-                <div className="text-[11px] text-text-muted uppercase tracking-wider mb-1">Agent Keypair</div>
-                <span className="text-sm text-text-primary font-mono">9mPQ...8Rtt</span>
-              </div>
-            </div>
-          </Card>
+      <Card className="p-6 border-accent-border bg-accent-dim/5">
+        <div className="flex flex-wrap justify-between gap-4 items-center">
+          <div>
+            <div className="text-sm font-semibold">Deployment state</div>
+            <p className="text-xs text-text-secondary mt-2">
+              {programDeployed ? 'The Solvex vault program is executable on this cluster.' : 'The new program is built locally but is not deployed on this cluster yet.'}
+            </p>
+          </div>
+          <Badge variant={programDeployed ? 'positive' : 'warning'}>{programDeployed ? 'program live' : 'deployment pending'}</Badge>
         </div>
-      )}
+      </Card>
 
-      {activeTab === 'manage' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="p-8">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-full bg-positive-dim flex items-center justify-center text-positive">
-                <ArrowDown size={20} />
-              </div>
-              <h2 className="text-lg font-semibold">Deposit</h2>
-            </div>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-xs text-text-muted uppercase tracking-wider mb-2">Token</label>
-                <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1 gap-2 border-accent text-text-primary">
-                    <div className="w-5 h-5 rounded-full bg-solana" /> SOL
-                  </Button>
-                  <Button variant="outline" className="flex-1 gap-2">
-                    <div className="w-5 h-5 rounded-full bg-info" /> USDC
-                  </Button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs text-text-muted uppercase tracking-wider mb-2">Amount</label>
-                <div className="relative">
-                  <input 
-                    type="number" 
-                    placeholder="0.00"
-                    className="w-full bg-bg-elevated border border-border-default rounded-md h-12 px-4 font-mono text-lg focus:outline-none focus:border-accent"
-                  />
-                  <button className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-accent hover:opacity-80">MAX</button>
-                </div>
-                <div className="flex justify-between mt-2">
-                  <span className="text-[11px] text-text-muted">Balance: 1.24 SOL</span>
-                  <span className="text-[11px] text-text-muted">~$0.00</span>
-                </div>
-              </div>
-              <Button className="w-full h-12 text-base">Deposit SOL</Button>
-            </div>
-          </Card>
-
-          <Card className="p-8">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-full bg-negative-dim flex items-center justify-center text-negative">
-                <ArrowUp size={20} />
-              </div>
-              <h2 className="text-lg font-semibold">Withdraw</h2>
-            </div>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-xs text-text-muted uppercase tracking-wider mb-2">Amount</label>
-                <div className="relative">
-                  <input 
-                    type="number" 
-                    placeholder="0.00"
-                    className="w-full bg-bg-elevated border border-border-default rounded-md h-12 px-4 font-mono text-lg focus:outline-none focus:border-accent"
-                  />
-                </div>
-                <div className="grid grid-cols-4 gap-2 mt-3">
-                  {['25%', '50%', '75%', '100%'].map(p => (
-                    <button key={p} className="h-8 bg-bg-elevated border border-border-default rounded text-[11px] font-medium text-text-secondary hover:text-text-primary hover:border-border-strong transition-all">{p}</button>
-                  ))}
-                </div>
-              </div>
-              <div className="p-4 bg-warning-dim/10 border border-warning-dim rounded-md">
-                <p className="text-xs text-warning leading-relaxed">
-                  Agent is currently executing. Withdrawal will be processed after current cycle (approx. 4m 46s).
-                </p>
-              </div>
-              <Button variant="outline" className="w-full h-12 text-base border-negative text-negative hover:bg-negative-dim">Withdraw Assets</Button>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {activeTab === 'history' && (
-        <Card className="p-0 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="text-[11px] text-text-muted uppercase tracking-wider border-b border-border-subtle">
-                  <th className="px-6 py-4 font-medium">Date/Time</th>
-                  <th className="px-6 py-4 font-medium">Type</th>
-                  <th className="px-6 py-4 font-medium">Amount</th>
-                  <th className="px-6 py-4 font-medium">Token</th>
-                  <th className="px-6 py-4 font-medium">TX Hash</th>
-                  <th className="px-6 py-4 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-subtle">
-                {[
-                  { date: '2026-04-02 14:32', type: 'Rebalance (Buy)', amount: '0.085', token: 'SOL', hash: '5xK9...nP3Q', status: 'Confirmed' },
-                  { date: '2026-04-02 12:15', type: 'Deposit', amount: '0.500', token: 'SOL', hash: 'HN3x...2PqR', status: 'Confirmed' },
-                  { date: '2026-04-01 18:44', type: 'Rebalance (Sell)', amount: '120.50', token: 'USDC', hash: 'SAgn...Vlt8', status: 'Confirmed' },
-                ].map((row, i) => (
-                  <tr key={i} className="text-sm hover:bg-bg-subtle transition-colors">
-                    <td className="px-6 py-4 text-text-secondary font-mono">{row.date}</td>
-                    <td className="px-6 py-4">
-                      <span className={cn(
-                        "text-[10px] font-bold uppercase",
-                        row.type.includes('Buy') || row.type === 'Deposit' ? "text-positive" : "text-negative"
-                      )}>{row.type}</span>
-                    </td>
-                    <td className="px-6 py-4 font-mono text-text-primary">{row.amount}</td>
-                    <td className="px-6 py-4 text-text-secondary">{row.token}</td>
-                    <td className="px-6 py-4 font-mono text-text-muted">{row.hash}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1.5 text-text-secondary">
-                        <div className="w-1.5 h-1.5 rounded-full bg-positive" />
-                        {row.status}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="p-6 lg:col-span-2 space-y-6">
+          <AddressRow label="Program ID" value={PROGRAM_ID.toBase58()} onCopy={copy} href={explorer(PROGRAM_ID.toBase58())} />
+          <AddressRow label="Owner" value={address ?? 'Connect Phantom'} onCopy={copy} href={address ? explorer(address) : undefined} />
+          <AddressRow label="Your vault PDA" value={vaultAddress?.toBase58() ?? 'Derived after wallet connection'} onCopy={copy} href={vaultAddress ? explorer(vaultAddress.toBase58()) : undefined} />
+          <div className="flex items-center justify-between border-t border-border-subtle pt-5">
+            <span className="text-sm text-text-secondary">Vault account</span>
+            <Badge variant={vaultCreated ? 'positive' : 'default'}>{vaultCreated ? 'initialized' : 'not initialized'}</Badge>
           </div>
         </Card>
-      )}
+
+        <Card className="p-6 space-y-5">
+          <div className="flex items-center gap-3"><ShieldCheck size={18} className="text-accent" /><h2 className="font-semibold">Enforced limits</h2></div>
+          <Limit label="Principal cap" value={`$${config.investmentCapUsd.toLocaleString()}`} />
+          <Limit label="Per trade" value={`$${config.maxSingleTradeUsd.toLocaleString()}`} />
+          <Limit label="Daily turnover" value={`$${config.maxDailyTurnoverUsd.toLocaleString()}`} />
+          <Limit label="Max drawdown" value={`${config.maxDrawdownPct}%`} />
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-4"><LockKeyhole size={18} className="text-accent" /><h2 className="font-semibold">Custody rules</h2></div>
+          <ul className="space-y-3 text-sm text-text-secondary">
+            <li>Only the owner can deposit or withdraw.</li>
+            <li>The delegated agent can swap only between the configured two token accounts.</li>
+            <li>Jupiter program ID, quote expiry, input ceiling, and minimum output are checked on-chain.</li>
+            <li>The backend decision hash is emitted with every successful swap.</li>
+          </ul>
+        </Card>
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-4"><PauseCircle size={18} className="text-warning" /><h2 className="font-semibold">Owner controls</h2></div>
+          <p className="text-sm text-text-secondary mb-5">The program is live on Devnet. Wallet instructions for initialization and owner controls are the next integration step; Jupiter swaps remain locked because its canonical program is not available on Devnet.</p>
+          <div className="flex flex-wrap gap-3">
+            <Button disabled>{vaultCreated ? 'Management integration pending' : 'Initialization integration pending'}</Button>
+            <Button variant="outline" disabled>Swaps Locked</Button>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }
 
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ');
+function AddressRow({ label, value, onCopy, href }: { label: string; value: string; onCopy: (value: string) => void; href?: string }) {
+  return <div><div className="text-[11px] text-text-muted uppercase tracking-wider mb-2">{label}</div><div className="flex items-center gap-2 font-mono text-sm break-all"><span>{value}</span>{href && <><button onClick={() => void onCopy(value)} className="text-text-muted hover:text-accent shrink-0"><Copy size={14} /></button><a href={href} target="_blank" rel="noreferrer" className="text-text-muted hover:text-accent shrink-0"><ExternalLink size={14} /></a></>}</div></div>;
+}
+
+function Limit({ label, value }: { label: string; value: string }) {
+  return <div className="flex justify-between text-sm"><span className="text-text-secondary">{label}</span><span className="font-mono text-text-primary">{value}</span></div>;
 }

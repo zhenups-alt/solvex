@@ -1,0 +1,92 @@
+import type { AgentConfig } from '../store';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
+export interface RiskProfileResponse {
+  id: string;
+  wallet_address: string;
+  risk_level: 'conservative' | 'balanced' | 'growth';
+  investment_cap_usd: string;
+  max_single_trade_usd: string;
+  max_daily_turnover_usd: string;
+  max_slippage_bps: number;
+  max_drawdown_pct: string;
+  enabled: boolean;
+}
+
+export interface PolicyCheckResponse {
+  code: string;
+  outcome: 'pass' | 'review' | 'fail';
+  message: string;
+  evidence: string[];
+}
+
+export interface DecisionLogResponse {
+  id: string;
+  wallet_address: string;
+  status: string;
+  proposal: {
+    action: 'buy' | 'sell' | 'hold' | 'rebalance';
+    transaction_kind: string;
+    input_asset: string;
+    output_asset: string;
+    protocol_id: string;
+    amount_usd: string;
+    slippage_bps: number;
+    confidence: number;
+    rationale: string;
+    key_signals: string[];
+  };
+  shariah: {
+    status: 'eligible' | 'review' | 'blocked';
+    approved: boolean;
+    methodology_version: string;
+    checks: PolicyCheckResponse[];
+  };
+  risk: {
+    status: 'eligible' | 'review' | 'blocked';
+    approved: boolean;
+    methodology_version: string;
+    checks: PolicyCheckResponse[];
+  };
+  execution_allowed: boolean;
+  simulation: Record<string, unknown> | null;
+  execution: Record<string, unknown> | null;
+  created_at: string;
+}
+
+const profileToApi = (profile: AgentConfig['profile']): RiskProfileResponse['risk_level'] =>
+  profile.toLowerCase() as RiskProfileResponse['risk_level'];
+
+const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
+  const response = await fetch(`${API_BASE}${path}`, init);
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.detail || `Solvex API request failed (${response.status})`);
+  }
+  return response.json() as Promise<T>;
+};
+
+export const getRiskProfile = (walletAddress: string) =>
+  request<RiskProfileResponse>(`/api/v1/profiles/${walletAddress}`);
+
+export const saveRiskProfile = (walletAddress: string, config: AgentConfig) =>
+  request<RiskProfileResponse>(`/api/v1/profiles/${walletAddress}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      wallet_address: walletAddress,
+      risk_level: profileToApi(config.profile),
+      investment_cap_usd: config.investmentCapUsd,
+      max_single_trade_usd: config.maxSingleTradeUsd,
+      max_daily_turnover_usd: config.maxDailyTurnoverUsd,
+      max_slippage_bps: Math.round(config.slippageTolerance * 100),
+      max_drawdown_pct: config.maxDrawdownPct,
+      enabled: true,
+    }),
+  });
+
+export const getDecisionLogs = (walletAddress: string, limit = 50) =>
+  request<{ items: DecisionLogResponse[] }>(
+    `/api/v1/decisions/${encodeURIComponent(walletAddress)}?limit=${limit}`,
+  );

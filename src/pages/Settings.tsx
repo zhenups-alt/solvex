@@ -1,11 +1,10 @@
 import React from 'react';
 import { Card, Button, Badge } from '../components/UI';
-import { useStore } from '../store';
 import { Monitor, Globe, Bell, ShieldAlert, Trash2, LogOut } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { usePhantom } from '../components/WalletContextProvider';
 
 export default function SettingsPage() {
-  const { isDemoMode, setDemoMode, walletAddress, setWalletAddress } = useStore();
+  const { network } = usePhantom();
 
   return (
     <div className="p-8 max-w-4xl space-y-12">
@@ -37,12 +36,12 @@ export default function SettingsPage() {
                 <Globe className="text-text-muted" size={20} />
                 <div>
                   <div className="text-sm font-medium">Cluster</div>
-                  <div className="text-xs text-text-muted">Currently connected to Solana Devnet.</div>
+                  <div className="text-xs text-text-muted">Currently connected to Solana {network}.</div>
                 </div>
               </div>
               <div className="flex items-center gap-2 px-3 py-1 bg-accent-dim border border-accent-border rounded-md">
                 <div className="w-1.5 h-1.5 rounded-full bg-accent" />
-                <span className="text-[11px] font-mono text-accent uppercase font-bold">Devnet</span>
+                <span className="text-[11px] font-mono text-accent uppercase font-bold">{network}</span>
               </div>
             </div>
             <div className="pt-4 border-t border-border-subtle">
@@ -53,30 +52,6 @@ export default function SettingsPage() {
                 className="w-full bg-bg-elevated border border-border-default rounded-md h-10 px-4 text-sm font-mono focus:outline-none focus:border-accent"
               />
             </div>
-          </Card>
-        </section>
-
-        <section className="space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-text-muted">Demo Mode</h2>
-          <Card className="p-6 flex items-center justify-between">
-            <div className="space-y-1">
-              <div className="text-sm font-medium">Toggle Demo Mode</div>
-              <div className="text-xs text-text-muted">Simulate live data without connecting a wallet.</div>
-            </div>
-            <button
-              onClick={() => setDemoMode(!isDemoMode)}
-              className={cn(
-                "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none",
-                isDemoMode ? "bg-accent" : "bg-bg-elevated border border-border-default"
-              )}
-            >
-              <span
-                className={cn(
-                  "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-                  isDemoMode ? "translate-x-6" : "translate-x-1"
-                )}
-              />
-            </button>
           </Card>
         </section>
 
