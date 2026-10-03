@@ -23,6 +23,8 @@ export const DEVNET_USDC_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEER
 
 const INITIALIZE_VAULT_DISCRIMINATOR = new Uint8Array([48, 191, 163, 44, 71, 129, 63, 164]);
 const SET_PAUSED_DISCRIMINATOR = new Uint8Array([91, 60, 125, 192, 176, 225, 166, 218]);
+const SET_LIMITS_DISCRIMINATOR = new Uint8Array([207, 50, 250, 67, 211, 33, 70, 91]);
+const VAULT_STATE_DISCRIMINATOR = new Uint8Array([228, 196, 82, 165, 98, 210, 235, 152]);
 const DEPOSIT_BASE_DISCRIMINATOR = new Uint8Array([213, 125, 25, 122, 8, 72, 100, 237]);
 const WITHDRAW_BASE_DISCRIMINATOR = new Uint8Array([161, 122, 255, 170, 42, 39, 23, 120]);
 const LAMPORTS_PER_SOL_BIGINT = 1_000_000_000n;
@@ -82,7 +84,9 @@ function readPublicKey(data: Uint8Array, offset: number) {
 
 function toAtomicSol(sol: number) {
   if (!Number.isFinite(sol) || sol <= 0) throw new Error('SOL amount must be greater than zero');
-  return BigInt(Math.floor(sol * Number(LAMPORTS_PER_SOL_BIGINT)));
+  const lamports = Math.floor(sol * Number(LAMPORTS_PER_SOL_BIGINT));
+  if (!Number.isSafeInteger(lamports) || lamports <= 0) throw new Error('SOL amount is outside supported precision');
+  return BigInt(lamports);
 }
 
 function usdToSolAtomic(usd: number, solPriceUsd: number) {
@@ -90,7 +94,24 @@ function usdToSolAtomic(usd: number, solPriceUsd: number) {
 }
 
 function usdToUsdcAtomic(usd: number) {
-  return BigInt(Math.max(1, Math.floor(usd * Number(USDC_ATOMIC_UNITS))));
+  const units = Math.floor(usd * Number(USDC_ATOMIC_UNITS));
+  if (!Number.isSafeInteger(units) || units <= 0) throw new Error('USD limit is outside supported precision');
+  return BigInt(units);
+}
+
+function encodedLimits(limits: VaultLimitsInput) {
+  for (const value of Object.values(limits)) {
+    if (!Number.isFinite(value) || value <= 0) throw new Error('All limits and the SOL price must be positive');
+  }
+  if (limits.maxSingleTradeUsd > limits.investmentCapUsd) throw new Error('Per-trade limit exceeds the investment cap');
+  if (limits.maxSingleTradeUsd > limits.maxDailyTurnoverUsd) throw new Error('Per-trade limit exceeds the daily turnover cap');
+  return [
+    encodeU64(usdToSolAtomic(limits.investmentCapUsd, limits.solPriceUsd)),
+    encodeU64(usdToSolAtomic(limits.maxSingleTradeUsd, limits.solPriceUsd)),
+    encodeU64(usdToUsdcAtomic(limits.maxSingleTradeUsd)),
+    encodeU64(usdToSolAtomic(limits.maxDailyTurnoverUsd, limits.solPriceUsd)),
+    encodeU64(usdToUsdcAtomic(limits.maxDailyTurnoverUsd)),
+  ];
 }
 
 export function deriveVaultAddresses(owner: PublicKey) {
@@ -111,17 +132,10 @@ export function createInitializeVaultTransaction(owner: PublicKey, limits: Vault
     throw new Error('A current SOL price is required to calculate on-chain limits');
   }
   const addresses = deriveVaultAddresses(owner);
-  const maxPrincipalBase = usdToSolAtomic(limits.investmentCapUsd, limits.solPriceUsd);
-  const maxTradeBase = usdToSolAtomic(limits.maxSingleTradeUsd, limits.solPriceUsd);
-  const maxDailyBase = usdToSolAtomic(limits.maxDailyTurnoverUsd, limits.solPriceUsd);
   const data = instructionData(
     INITIALIZE_VAULT_DISCRIMINATOR,
     SOLVEX_AGENT.toBytes(),
-    encodeU64(maxPrincipalBase),
-    encodeU64(maxTradeBase),
-    encodeU64(usdToUsdcAtomic(limits.maxSingleTradeUsd)),
-    encodeU64(maxDailyBase),
-    encodeU64(usdToUsdcAtomic(limits.maxDailyTurnoverUsd)),
+    ...encodedLimits(limits),
   );
   const initialize = new TransactionInstruction({
     programId: VAULT_PROGRAM_ID,
@@ -148,6 +162,37 @@ export function createInitializeVaultTransaction(owner: PublicKey, limits: Vault
     ],
   });
   return { transaction: new Transaction().add(initialize, unpause), additionalSigners: [] };
+}
+
+function ownerInstruction(owner: PublicKey, state: VaultOnChainState, data: Buffer) {
+  if (!state.owner.equals(owner) || !state.address.equals(deriveVaultAddresses(owner).vault)) {
+    throw new Error('Only the vault owner can change its settings');
+  }
+  return new TransactionInstruction({
+    programId: VAULT_PROGRAM_ID, data,
+    keys: [
+      { pubkey: state.address, isSigner: false, isWritable: true },
+      { pubkey: owner, isSigner: true, isWritable: false },
+    ],
+  });
+}
+
+export function createSetPausedTransaction(owner: PublicKey, state: VaultOnChainState, paused: boolean): BuiltVaultTransaction {
+  return {
+    transaction: new Transaction().add(ownerInstruction(owner, state, instructionData(SET_PAUSED_DISCRIMINATOR, new Uint8Array([paused ? 1 : 0])))),
+    additionalSigners: [],
+  };
+}
+
+export function createSetLimitsTransaction(owner: PublicKey, state: VaultOnChainState, limits: VaultLimitsInput): BuiltVaultTransaction {
+  const encoded = encodedLimits(limits);
+  if (usdToSolAtomic(limits.investmentCapUsd, limits.solPriceUsd) < state.depositedPrincipalBase) {
+    throw new Error('New on-chain cap is below the deposited principal. Withdraw first or raise the cap.');
+  }
+  return {
+    transaction: new Transaction().add(ownerInstruction(owner, state, instructionData(SET_LIMITS_DISCRIMINATOR, ...encoded))),
+    additionalSigners: [],
+  };
 }
 
 async function createTemporaryWsolAccount(
@@ -242,7 +287,11 @@ export async function loadVaultState(connection: Connection, owner: PublicKey): 
   const account = await connection.getAccountInfo(vault, 'confirmed');
   if (!account) return null;
   const data = account.data;
-  if (data.length < 283) throw new Error('Vault account data is shorter than expected');
+  if (!account.owner.equals(VAULT_PROGRAM_ID) || data.length < 283
+      || !VAULT_STATE_DISCRIMINATOR.every((value, index) => data[index] === value)
+      || data[8] !== 1 || !readPublicKey(data, 9).equals(owner)) {
+    throw new Error('Invalid or unsupported vault account');
+  }
   const baseCustody = readPublicKey(data, 137);
   const quoteCustody = readPublicKey(data, 169);
   const [baseBalance, quoteBalance] = await Promise.all([

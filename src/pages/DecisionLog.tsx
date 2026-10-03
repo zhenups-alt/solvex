@@ -6,6 +6,7 @@ import { usePhantom } from '../components/WalletContextProvider';
 import { DecisionLogResponse, getDecisionLogs } from '../lib/solvexApi';
 import { cn } from '../lib/utils';
 import { localizeCode, useLanguage } from '../i18n';
+import { Link } from 'react-router-dom';
 
 const statusTone = (status: string) => {
   if (status === 'executed' || status === 'ready_for_execution') return 'text-positive';
@@ -93,6 +94,8 @@ export default function DecisionLogPage() {
         <h1 className="text-2xl font-bold text-text-primary">{tr('Decision Log', 'Журнал решений')}</h1>
         <p className="text-text-secondary mt-1">{tr('Every proposal, policy check, simulation, and execution result in one audit trail.', 'Все предложения, проверки политик, симуляции и результаты исполнения собраны в едином журнале аудита.')}</p>
       </header>
+
+      <Link to="/autopilot" className="block text-sm text-accent underline">{tr('Autopilot virtual trades have a separate journal →', 'Виртуальные сделки автопилота записываются в отдельный журнал →')}</Link>
 
       <div className="flex flex-wrap gap-4 items-center justify-between">
         <div className="relative flex-1 max-w-2xl">

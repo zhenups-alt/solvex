@@ -37,6 +37,12 @@ def _catalog_check(code: str, subject: str, entry: CatalogEntry | None) -> Polic
 class ShariahPolicyEngine:
     methodology_version = METHODOLOGY_VERSION
 
+    def __init__(self, *, assets=None, protocols=None, methodology_version=None):
+        self.assets = ASSET_CATALOG if assets is None else assets
+        self.protocols = PROTOCOL_CATALOG if protocols is None else protocols
+        if methodology_version:
+            self.methodology_version = methodology_version
+
     def screen(self, proposal: TradeProposal) -> EngineResult:
         checks: list[PolicyCheck] = []
 
@@ -82,21 +88,21 @@ class ShariahPolicyEngine:
                 _catalog_check(
                     "SH-04-INPUT-ASSET",
                     f"Input asset {proposal.input_asset.upper()}",
-                    ASSET_CATALOG.get(proposal.input_asset.upper()),
+                    self.assets.get(proposal.input_asset.upper()),
                 )
             )
             checks.append(
                 _catalog_check(
                     "SH-04-OUTPUT-ASSET",
                     f"Output asset {proposal.output_asset.upper()}",
-                    ASSET_CATALOG.get(proposal.output_asset.upper()),
+                    self.assets.get(proposal.output_asset.upper()),
                 )
             )
             checks.append(
                 _catalog_check(
                     "SH-05-PROTOCOL",
                     f"Protocol {proposal.protocol_id}",
-                    PROTOCOL_CATALOG.get(proposal.protocol_id),
+                    self.protocols.get(proposal.protocol_id),
                 )
             )
 
@@ -118,7 +124,7 @@ class ShariahPolicyEngine:
                         _catalog_check(
                             "SH-05-ROUTE",
                             f"Route program {route_program}",
-                            PROTOCOL_CATALOG.get(route_program),
+                            self.protocols.get(route_program),
                         )
                     )
 

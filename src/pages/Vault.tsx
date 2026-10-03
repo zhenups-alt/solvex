@@ -22,7 +22,9 @@ import {
   DecisionLogResponse,
   SolMarketDataResponse,
   analyzePortfolio,
+  ensureWalletSession,
   getSolMarketData,
+  getRiskProfile,
   simulateDecision,
 } from '../lib/solvexApi';
 import {
@@ -32,16 +34,18 @@ import {
   createDepositSolTransaction,
   createInitializeVaultTransaction,
   createWithdrawSolTransaction,
+  createSetPausedTransaction,
+  createSetLimitsTransaction,
   deriveVaultAddresses,
   loadVaultState,
 } from '../lib/vaultClient';
 import { useStore } from '../store';
 import { Link } from 'react-router-dom';
 
-type WorkingAction = 'refresh' | 'create' | 'deposit' | 'withdraw' | 'analyze' | 'simulate' | null;
+type WorkingAction = 'refresh' | 'create' | 'deposit' | 'withdraw' | 'analyze' | 'simulate' | 'pause' | 'limits' | null;
 
 export default function VaultPage() {
-  const { address, publicKey, balance, connection, network, sendTransaction } = usePhantom();
+  const { address, publicKey, balance, connection, network, sendTransaction, signMessage } = usePhantom();
   const { config } = useStore();
   const { language, locale, tr } = useLanguage();
   const [programDeployed, setProgramDeployed] = useState(false);
@@ -88,6 +92,7 @@ export default function VaultPage() {
   }, [refresh]);
 
   const sendAndReport = async (transactionFactory: () => Promise<BuiltVaultTransaction> | BuiltVaultTransaction, successMessage: string) => {
+    if (network !== 'devnet') throw new Error(tr('This vault workflow is available on Devnet only.', 'Это хранилище доступно только в Devnet.'));
     const built = await transactionFactory();
     const signature = await sendTransaction(built.transaction, built.additionalSigners);
     toast.success(successMessage, {
@@ -100,12 +105,14 @@ export default function VaultPage() {
     if (!publicKey || !market) return;
     setWorking('create');
     try {
+      const [saved, currentMarket] = await Promise.all([getRiskProfile(address!), getSolMarketData()]);
+      setMarket(currentMarket);
       await sendAndReport(
         () => createInitializeVaultTransaction(publicKey, {
-          investmentCapUsd: config.investmentCapUsd,
-          maxSingleTradeUsd: config.maxSingleTradeUsd,
-          maxDailyTurnoverUsd: config.maxDailyTurnoverUsd,
-          solPriceUsd: Number(market.price_usd),
+          investmentCapUsd: Number(saved.investment_cap_usd),
+          maxSingleTradeUsd: Number(saved.max_single_trade_usd),
+          maxDailyTurnoverUsd: Number(saved.max_daily_turnover_usd),
+          solPriceUsd: Number(currentMarket.price_usd),
         }),
         tr('Vault created on Devnet', 'Хранилище создано в Devnet'),
       );
@@ -125,6 +132,13 @@ export default function VaultPage() {
       toast.error(tr('Enter a valid SOL amount', 'Укажите корректную сумму SOL'));
       return;
     }
+    const remaining = Number(vaultState.maxPrincipalBase - vaultState.depositedPrincipalBase) / 1_000_000_000;
+    if (amount > remaining) {
+      toast.error(tr('Deposit exceeds your vault limit', 'Пополнение превышает лимит хранилища'), {
+        description: tr(`You can add up to ${remaining.toFixed(9)} SOL.`, `Можно внести ещё ${remaining.toFixed(9)} SOL.`),
+      });
+      return;
+    }
     if (balance != null && amount + 0.02 > balance) {
       toast.error(tr('Keep at least 0.02 SOL for network fees', 'Оставьте минимум 0,02 SOL на комиссии сети'));
       return;
@@ -142,6 +156,28 @@ export default function VaultPage() {
     } finally {
       setWorking(null);
     }
+  };
+
+  const manageVault = async (action: 'pause' | 'limits') => {
+    if (!publicKey || !address || !vaultState) return;
+    setWorking(action);
+    try {
+      if (action === 'pause') {
+        await sendAndReport(() => createSetPausedTransaction(publicKey, vaultState, !vaultState.paused),
+          tr('Vault pause state updated', 'Состояние паузы Vault обновлено'));
+      } else {
+        const [saved, currentMarket] = await Promise.all([getRiskProfile(address), getSolMarketData()]);
+        setMarket(currentMarket);
+        await sendAndReport(() => createSetLimitsTransaction(publicKey, vaultState, {
+          investmentCapUsd: Number(saved.investment_cap_usd),
+          maxSingleTradeUsd: Number(saved.max_single_trade_usd),
+          maxDailyTurnoverUsd: Number(saved.max_daily_turnover_usd),
+          solPriceUsd: Number(currentMarket.price_usd),
+        }), tr('On-chain vault limits updated', 'Ончейн-лимиты Vault обновлены'));
+      }
+    } catch (error) {
+      toast.error(tr('Could not update vault', 'Не удалось обновить Vault'), { description: error instanceof Error ? error.message : undefined });
+    } finally { setWorking(null); }
   };
 
   const withdraw = async () => {
@@ -171,6 +207,7 @@ export default function VaultPage() {
     setWorking('analyze');
     setSimulation(null);
     try {
+      await ensureWalletSession(address, signMessage);
       const price = Number(market.price_usd);
       const principalUsd = Number(vaultState.depositedPrincipalBase) / 1_000_000_000 * price;
       const marketValueUsd = vaultState.baseBalance * price + vaultState.quoteBalance;
@@ -212,6 +249,7 @@ export default function VaultPage() {
     if (!address || !lastDecision) return;
     setWorking('simulate');
     try {
+      await ensureWalletSession(address, signMessage);
       const result = await simulateDecision(lastDecision.id, address);
       setSimulation(result.simulation);
       toast.success(tr('Simulation result saved', 'Результат симуляции сохранён'));
@@ -243,6 +281,10 @@ export default function VaultPage() {
           <RefreshCw size={14} className={working === 'refresh' ? 'animate-spin' : ''} /> {tr('Refresh', 'Обновить')}
         </Button>
       </header>
+
+      <Link to="/autopilot" className="block rounded-xl border border-accent/30 bg-accent/5 p-4 text-sm text-accent">
+        {tr('Try Autopilot → Automatic virtual trading, portfolio results and a cycle-by-cycle log. Your Devnet vault stays separate.', 'Попробуйте автопилот → Автоматические виртуальные сделки, результат портфеля и журнал циклов. Devnet-хранилище учитывается отдельно.')}
+      </Link>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Step number="1" done={Boolean(address)} label={tr('Connect Phantom', 'Подключить Phantom')} />
@@ -306,6 +348,13 @@ export default function VaultPage() {
                   <Badge variant={vaultState.paused ? 'warning' : 'positive'}>{vaultState.paused ? tr('paused', 'на паузе') : tr('active', 'активен')}</Badge>
                 </div>
               )}
+              {vaultState && <div className="space-y-3 border-t border-border-subtle pt-4">
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" disabled={working !== null} onClick={() => void manageVault('pause')}>{vaultState.paused ? tr('Resume Devnet vault', 'Возобновить Devnet Vault') : tr('Pause Devnet vault', 'Остановить Devnet Vault')}</Button>
+                  <Button size="sm" variant="outline" disabled={working !== null} onClick={() => void manageVault('limits')}>{tr('Apply saved limits on-chain', 'Применить сохранённые лимиты ончейн')}</Button>
+                </div>
+                <p className="text-xs text-text-muted">{tr('Changes require a Phantom transaction signature. Applying limits recalculates SOL caps at the current price. Pausing blocks deposits and swaps; withdrawals remain available. These controls do not affect paper Autopilot.', 'Изменения требуют подписи транзакции в Phantom. Применение лимитов пересчитывает максимум SOL по текущей цене. Пауза блокирует пополнения и обмены, но сохраняет вывод. Эти кнопки не управляют виртуальным автопилотом.')}</p>
+              </div>}
             </>
           )}
         </Card>
@@ -320,8 +369,9 @@ export default function VaultPage() {
             <span className="text-xs font-semibold text-text-secondary">{tr('Amount to deposit', 'Сумма пополнения')}</span>
             <div className="flex gap-2">
               <input type="number" min="0.001" step="0.01" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} className="h-10 min-w-0 flex-1 rounded-md border border-border-default bg-bg-base px-3 font-mono text-sm focus:border-accent focus:outline-none" />
-              <Button disabled={!vaultState || working !== null} onClick={() => void deposit()}>{working === 'deposit' ? tr('Depositing…', 'Пополнение…') : tr('Deposit SOL', 'Внести SOL')}</Button>
+              <Button disabled={!vaultState || vaultState.paused || working !== null} onClick={() => void deposit()}>{working === 'deposit' ? tr('Depositing…', 'Пополнение…') : tr('Deposit SOL', 'Внести SOL')}</Button>
             </div>
+            {vaultState && <p className="text-xs text-text-muted">{tr('Remaining deposit capacity:', 'Можно внести ещё:')} {Math.max(0, Number(vaultState.maxPrincipalBase - vaultState.depositedPrincipalBase) / 1_000_000_000).toLocaleString(locale, { maximumFractionDigits: 9 })} SOL</p>}
           </label>
           <label className="block space-y-2 border-t border-border-subtle pt-5">
             <span className="text-xs font-semibold text-text-secondary">{tr('Amount to withdraw', 'Сумма вывода')}</span>

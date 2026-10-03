@@ -29,7 +29,12 @@ or failed simulation stops automatic execution.
 - Gemini adapter using the official Google Gen AI SDK and structured output
 - Per-user Anchor vault with owner-only custody, pause/revoke, and on-chain limits
 - Anchor vault deployed on Solana Devnet
+- Owner-signed Devnet vault pause/resume and application of saved limits on-chain
 - Execution feature flag defaults to off
+- Autonomous paper portfolio at `/autopilot`: start/pause/resume, persistent server-side cycles,
+  virtual SOL/USD balances, cost-basis accounting, P&L, fees, drawdown, and exportable events
+- Wallet-signed authentication for profile changes, analysis requests, and paper-agent control
+- English by default; an explicitly saved Russian preference is preserved
 
 The Jupiter Router/CPI path is implemented in the vault boundary, but live execution remains
 off until a Jupiter API key is configured, a route passes the policy catalog, simulation
@@ -37,7 +42,10 @@ succeeds, and mainnet readiness is explicitly approved. Canonical Jupiter v6 is 
 as a Devnet SBF program, so the Devnet deployment cannot be presented as a live Jupiter swap
 environment. No private wallet key belongs in the frontend or database.
 
-## Run the frontend
+## Run locally
+
+Complete the Python backend setup below first. Then one command starts both Vite and FastAPI,
+including the background paper worker:
 
 ```bash
 npm install
@@ -45,7 +53,12 @@ cp .env.example .env.local
 npm run dev
 ```
 
-The app is served at `http://localhost:3000`.
+The app is served at `http://localhost:3000/autopilot`. Keep the terminal running. Closing a
+browser tab does not stop the worker; stopping the backend or sleeping the computer does.
+After restart, persisted running accounts resume from their next due cycle. There is no
+catch-up burst for cycles missed while the server was offline.
+
+Use `npm run dev:web` only if you intentionally run the API in a separate terminal.
 
 ## Run PostgreSQL
 
@@ -64,10 +77,58 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -e './backend[dev]'
 cp backend/.env.example backend/.env
 .venv/bin/alembic -c backend/alembic.ini upgrade head
-.venv/bin/uvicorn app.main:app --app-dir backend --reload --port 8080
+npm run dev
 ```
 
 API documentation is available at `http://localhost:8080/docs`.
+
+`alembic upgrade head` is for a database managed by migrations. Existing local databases
+created with `SOLVEX_AUTO_CREATE_TABLES=true` automatically receive the new paper/auth tables
+on startup; do not blindly stamp or overwrite an existing database to resolve a migration error.
+
+## Autonomous virtual portfolio
+
+1. Connect Phantom and save risk limits. The first protected action requests a free message
+   signature (not a transaction). Challenges expire after five minutes and cannot be replayed.
+2. Open **Autopilot**, sign in if requested, choose an initial virtual USD balance within your
+   saved cap and an interval (1–60 minutes), acknowledge paper mode, then start.
+3. The server runs **Allocation v1**: Conservative/Balanced/Growth target 30/50/70% SOL and
+   rebalance when allocation differs by at least five percentage points. Trades are bounded by
+   available holdings, per-trade limit and UTC daily turnover. A cooldown equals the interval.
+   Exceeding the peak drawdown limit changes the target to zero; permitted sells remain subject
+   to turnover limits. This is not a guaranteed stop-loss or a validated profitable strategy.
+4. Each cycle uses a fresh CoinGecko SOL price (maximum age 180 seconds). An unavailable or
+   stale price creates an error event and a scheduled retry, with no fill or balance mutation.
+5. Paper fills assume adverse slippage of 10 bps, a 10 bps variable fee, and a $0.01 fixed fee.
+   They do not model actual DEX liquidity, market impact or dynamic network fees. The UI shows
+   the price timestamp and marks stale valuations. This is forward paper testing, not a backtest.
+6. Buys add all costs to SOL cost basis; sells release weighted-average cost basis. Total P&L
+   equals realized plus unrealized P&L after estimated costs. Initial capital stays fixed and is
+   never recomputed from a changing SOL price. No real wallet or vault balance funds this ledger.
+7. Pause/resume from the UI. Saving new risk limits pauses a running agent; resume loads the new
+   profile. Journal and balances commit in one database transaction with a version compare-and-swap,
+   so duplicate workers cannot commit the same tick and pause invalidates in-flight work.
+   A 45-second persisted lease also prevents duplicate model requests and expires after a crash.
+
+Paper mode uses `USD_VIRTUAL` and `paper_spot_market` in a separate, explicitly sandbox-only
+catalog. These do **not** exist in the production catalog. USDC remains **Review**. Sandbox
+checks are not Shariah certification and paper fills never create a transaction signature.
+The default decision source is **Allocation rules**, which makes no LLM API calls. Select
+**Gemini** when starting the portfolio to ask the model for a proposal whenever the allocation
+strategy permits a trade. Its proposal must stay within the permitted direction, size and
+spot-only sandbox route, then pass the policy and risk engines. The model can choose HOLD;
+missing/invalid responses and a 20-second timeout fail closed. Gemini mode uses the configured
+API key and may incur provider charges. Quotes are checked for freshness again after the AI call.
+
+Current release boundary: Devnet deposits/withdrawals and autonomous virtual accounting work.
+Mainnet signing/submission, validated Jupiter CPI route construction, independent contract
+audit, qualified asset/protocol screening, deployment operations, and demonstrated strategy
+performance remain outstanding before public deposits. Changing `SOLVEX_EXECUTION_ENABLED`
+alone cannot turn the paper worker into live trading. Existing manual analysis snapshots are
+client-supplied and must not be reused as an authoritative live execution ledger.
+
+Implementation references: [Phantom message signatures](https://docs.phantom.com/solana/signing-a-message)
+and [CoinGecko price freshness](https://docs.coingecko.com/reference/simple-price).
 
 `GEMINI_API_KEY` is optional for policy and risk development. Keep it only in
 `backend/.env`; never expose it through a `VITE_*` variable.
@@ -118,6 +179,7 @@ The program was deployed to Devnet in slot `506626832`:
 .venv/bin/pytest -q backend/tests
 npm run lint
 npm run build
+npm run test:vault
 ```
 
 ## Security boundary for autonomous execution

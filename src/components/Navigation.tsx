@@ -39,6 +39,7 @@ export const TopNav = () => {
   const navLinks = [
     { name: tr('Home', 'Главная'), path: '/' },
     { name: tr('Dashboard', 'Панель'), path: '/dashboard' },
+    { name: tr('Autopilot', 'Автопилот'), path: '/autopilot' },
     { name: tr('Vault', 'Хранилище'), path: '/vault' },
     { name: tr('Decisions', 'Решения'), path: '/decisions' },
     { name: tr('Docs', 'Документация'), path: '/docs' },
@@ -87,7 +88,7 @@ export const TopNav = () => {
         {/* Tools and Connect */}
         <div className="flex items-center gap-2 pr-1">
           <div className="flex rounded-lg border border-white/10 bg-white/5 p-0.5" aria-label={tr('Language', 'Язык')}>
-            {(['ru', 'en'] as const).map((item) => (
+            {(['en', 'ru'] as const).map((item) => (
               <button
                 key={item}
                 type="button"
@@ -196,6 +197,7 @@ export const Sidebar = () => {
     {
       label: tr('AI Agent', 'ИИ-агент'),
       items: [
+        { name: tr('Autopilot · virtual', 'Автопилот · виртуальный'), path: '/autopilot', icon: Cpu },
         { name: tr('Agent limits', 'Лимиты агента'), path: '/agent-config?section=risk', icon: Settings2 },
         { name: tr('Decision log', 'Журнал решений'), path: '/decisions', icon: FileText },
       ]
@@ -245,7 +247,7 @@ export const Sidebar = () => {
       <div className="p-4 border-t border-white/5">
         <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <div className="text-[11px] font-bold text-text-primary uppercase tracking-wider">{tr('Execution Status', 'Статус исполнения')}</div>
+            <div className="text-[11px] font-bold text-text-primary uppercase tracking-wider">{tr('Live trading', 'Реальная торговля')}</div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-warning" />
               <span className="text-[10px] text-warning font-mono font-bold uppercase">{tr('Locked', 'Заблокировано')}</span>
@@ -254,7 +256,7 @@ export const Sidebar = () => {
           <div className="space-y-2">
             <div className="flex justify-between text-[11px]">
               <span className="text-text-muted">{tr('Mode:', 'Режим:')}</span>
-              <span className="text-text-secondary font-mono">{tr('Simulation', 'Симуляция')}</span>
+              <span className="text-text-secondary font-mono">{tr('Devnet + paper', 'Devnet + виртуальный')}</span>
             </div>
             <div className="flex justify-between text-[11px]">
               <span className="text-text-muted">{tr('Model:', 'Модель:')}</span>

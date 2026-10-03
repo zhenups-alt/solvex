@@ -13,6 +13,7 @@ import { useLanguage } from './i18n';
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const VaultPage = lazy(() => import('./pages/Vault'));
+const AutopilotPage = lazy(() => import('./pages/Autopilot'));
 const AgentConfigPage = lazy(() => import('./pages/AgentConfig'));
 const AnalyticsPage = lazy(() => import('./pages/Analytics'));
 const DecisionLogPage = lazy(() => import('./pages/DecisionLog'));
@@ -61,6 +62,7 @@ export default function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/vault" element={<VaultPage />} />
+          <Route path="/autopilot" element={<AutopilotPage />} />
           <Route path="/agent-config" element={<AgentConfigPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/decisions" element={<DecisionLogPage />} />

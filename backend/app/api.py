@@ -1,11 +1,13 @@
+from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import authenticated_wallet, require_owner
 from app.config import get_settings
 from app.db import get_session
 from app.domain.types import (
@@ -15,7 +17,7 @@ from app.domain.types import (
     RiskProfile,
     TradeProposal,
 )
-from app.models import DecisionLogRecord, RiskProfileRecord
+from app.models import DecisionLogRecord, PaperAccountRecord, PaperEventRecord, RiskProfileRecord
 from app.policy.methodology import METHODOLOGY
 from app.services.decision_pipeline import DecisionPipeline
 from app.services.gemini_agent import GeminiPortfolioAgent
@@ -80,6 +82,7 @@ async def get_sol_market_data() -> dict:
         "price_usd": str(snapshot.price_usd),
         "change_24h_pct": str(snapshot.change_24h_pct),
         "source": snapshot.source,
+        "captured_at": datetime.fromtimestamp(snapshot.captured_at, UTC).isoformat(),
     }
 
 
@@ -92,8 +95,10 @@ async def screen_proposal(proposal: TradeProposal):
 async def upsert_profile(
     wallet_address: str,
     payload: RiskProfile,
+    owner: str = Depends(authenticated_wallet),
     session: AsyncSession = Depends(get_session),
 ):
+    require_owner(owner, wallet_address)
     if wallet_address != payload.wallet_address:
         raise HTTPException(status_code=400, detail="wallet address path and body must match")
     record = await session.scalar(
@@ -107,6 +112,22 @@ async def upsert_profile(
     else:
         for key, value in values.items():
             setattr(record, key, value)
+    paper = await session.get(PaperAccountRecord, wallet_address)
+    if paper and paper.status == "running":
+        version = paper.version
+        changed = await session.execute(update(PaperAccountRecord).where(
+            PaperAccountRecord.wallet_address == wallet_address,
+            PaperAccountRecord.version == version,
+        ).values(status="paused", version=version + 1))
+        if changed.rowcount != 1:
+            await session.rollback()
+            raise HTTPException(409, "Agent completed a cycle; retry saving limits")
+        session.add(PaperEventRecord(wallet_address=wallet_address, version=version + 1, data={
+            "kind": "limits_changed", "mode": "paper", "status": "paused",
+            "at": datetime.now(UTC).isoformat(),
+            "message": "Risk limits changed. Resume to apply them to the virtual portfolio.",
+            "live_execution_allowed": False,
+        }))
     await session.commit()
     await session.refresh(record)
     return record
@@ -125,8 +146,10 @@ async def get_profile(wallet_address: str, session: AsyncSession = Depends(get_s
 @router.post("/decisions/evaluate", response_model=DecisionEvaluation)
 async def evaluate_decision(
     payload: DecisionRequest,
+    owner: str = Depends(authenticated_wallet),
     session: AsyncSession = Depends(get_session),
 ):
+    require_owner(owner, payload.wallet_address)
     profile_record = await session.scalar(
         select(RiskProfileRecord).where(RiskProfileRecord.wallet_address == payload.wallet_address)
     )
@@ -156,9 +179,11 @@ async def evaluate_decision(
 @router.post("/agent/analyze", response_model=DecisionEvaluation)
 async def analyze_portfolio(
     payload: AgentAnalysisRequest,
+    owner: str = Depends(authenticated_wallet),
     session: AsyncSession = Depends(get_session),
 ):
     """Create an untrusted AI proposal, evaluate it deterministically, and persist the result."""
+    require_owner(owner, payload.wallet_address)
     profile_record = await session.scalar(
         select(RiskProfileRecord).where(
             RiskProfileRecord.wallet_address == payload.wallet_address
@@ -194,8 +219,10 @@ async def analyze_portfolio(
 async def simulate_decision(
     decision_id: UUID,
     payload: SimulationRequest,
+    owner: str = Depends(authenticated_wallet),
     session: AsyncSession = Depends(get_session),
 ):
+    require_owner(owner, payload.wallet_address)
     record = await session.scalar(
         select(DecisionLogRecord).where(
             DecisionLogRecord.id == decision_id,

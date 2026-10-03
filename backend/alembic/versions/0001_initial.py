@@ -18,6 +18,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    json_type = sa.JSON().with_variant(postgresql.JSONB(), "postgresql")
     op.create_table(
         "risk_profiles",
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -32,13 +33,13 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.func.now(),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.func.now(),
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id"),
@@ -51,16 +52,16 @@ def upgrade() -> None:
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("wallet_address", sa.String(length=64), nullable=False),
         sa.Column("status", sa.String(length=40), nullable=False),
-        sa.Column("proposal", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("shariah_result", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("risk_result", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("proposal", json_type, nullable=False),
+        sa.Column("shariah_result", json_type, nullable=False),
+        sa.Column("risk_result", json_type, nullable=False),
         sa.Column("execution_allowed", sa.Boolean(), nullable=False),
-        sa.Column("simulation", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-        sa.Column("execution", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("simulation", json_type, nullable=True),
+        sa.Column("execution", json_type, nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.func.now(),
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id"),

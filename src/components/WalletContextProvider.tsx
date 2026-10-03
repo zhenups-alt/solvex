@@ -9,6 +9,7 @@ import React, { FC, ReactNode, createContext, useContext, useState, useEffect, u
 import { Connection, Keypair, PublicKey, SystemProgram, Transaction, clusterApiUrl, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { toast } from 'sonner';
 import { useLanguage } from '../i18n';
+import { clearWalletSessions } from '../lib/solvexApi';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -112,6 +113,7 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
     // ─── Event listeners ───────────────────────────────────────────────────
 
     const handleAccountChange = (newPk: PublicKey | null) => {
+      clearWalletSessions();
       if (newPk) {
         console.log('[Wallet] Account changed to:', newPk.toBase58());
         setPublicKey(newPk);
@@ -123,6 +125,7 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
     };
 
     const handleDisconnectEvent = () => {
+      clearWalletSessions();
       console.log('[Wallet] Disconnected event received.');
       setPublicKey(null);
       setConnected(false);
@@ -191,6 +194,7 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
   // ─── Disconnect ────────────────────────────────────────────────────────────
 
   const disconnect = useCallback(async () => {
+    clearWalletSessions();
     const phantom = getPhantom();
     if (phantom) {
       try {
@@ -221,7 +225,6 @@ export const WalletContextProvider: FC<{ children: ReactNode }> = ({ children })
       // bs58 encode manually using Buffer (polyfilled)
       const bs58 = await import('bs58');
       const sig = bs58.default.encode(signature);
-      console.log('[Wallet] Message signed. Signature:', sig);
       return sig;
     } catch (err: any) {
       console.error('[Wallet] Sign error:', err);

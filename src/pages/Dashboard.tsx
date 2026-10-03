@@ -40,6 +40,8 @@ export default function Dashboard() {
         </div>
       </header>
 
+      <Link to="/autopilot" className="block rounded-xl border border-accent/30 bg-accent/5 p-5 text-sm text-accent">{tr('Open Autopilot → Start an automatic virtual portfolio and track its results.', 'Открыть автопилот → Запустите автоматический виртуальный портфель и отслеживайте результат.')}</Link>
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <Metric icon={Wallet} label={tr('Wallet balance', 'Баланс кошелька')} value={balance == null ? '—' : `${balance.toFixed(4)} SOL`} note={tr('Read directly from Solana RPC', 'Получен напрямую через Solana RPC')} />
         <Metric icon={Shield} label={tr('Investment cap', 'Лимит инвестиций')} value={`$${config.investmentCapUsd.toLocaleString(locale)}`} note={tr('Deterministic backend limit', 'Жёсткий лимит на сервере')} />

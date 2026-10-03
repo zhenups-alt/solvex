@@ -16,7 +16,7 @@ import { Card, Button, Badge } from '../components/UI';
 import { AgentConfig, useStore } from '../store';
 import { cn } from '../lib/utils';
 import { usePhantom } from '../components/WalletContextProvider';
-import { getRiskProfile, saveRiskProfile } from '../lib/solvexApi';
+import { ensureWalletSession, getRiskProfile, saveRiskProfile } from '../lib/solvexApi';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../i18n';
@@ -26,7 +26,7 @@ export default function AgentConfigPage() {
   const [activeSection, setActiveSection] = useState(searchParams.get('section') || 'risk');
   const [saving, setSaving] = useState(false);
   const { config, updateConfig } = useStore();
-  const { address } = usePhantom();
+  const { address, signMessage } = usePhantom();
   const { tr } = useLanguage();
 
   useEffect(() => {
@@ -61,11 +61,12 @@ export default function AgentConfigPage() {
     }
     setSaving(true);
     try {
+      await ensureWalletSession(address, signMessage);
       await saveRiskProfile(address, config);
       toast.success(tr('Risk limits saved', 'Лимиты сохранены'), {
         description: tr(
-          `The agent cannot manage more than $${config.investmentCapUsd.toLocaleString()}.`,
-          `Агент не сможет управлять суммой больше $${config.investmentCapUsd.toLocaleString()}.`,
+          `Cap: $${config.investmentCapUsd.toLocaleString()}. If Autopilot was running, resume it to apply these limits.`,
+          `Лимит: $${config.investmentCapUsd.toLocaleString()}. Если автопилот работал, возобновите его для применения лимитов.`,
         ),
       });
     } catch (error) {
