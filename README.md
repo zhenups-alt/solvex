@@ -29,10 +29,15 @@ Solvex demonstrates wallet ownership, user limits, autonomous virtual execution 
 transparent policy/risk decisions in a Solana asset-management workflow.
 
 - **Repository owner:** [@zhenups-alt](https://github.com/zhenups-alt).
-- **Team names, roles and contacts:** awaiting confirmation from the team.
-- **Public application, video and submission links:** not published yet. Reviewers can use
-  the quick start and [demo guide](docs/demo.md).
+- **Demo video:** in preparation; the recording link will be added when ready. Reviewers can
+  use the quick start and [demo guide](docs/demo.md).
+- **Public application and submission links:** not published yet.
 - **Release boundary:** a development MVP, not an audited service accepting public deposits.
+
+### Team
+
+- **Bakhram Ilakhunov (Илахунов Бахрам)** — Full-Stack Developer & ML/AI Engineer.
+- **Zhumagali Yerbol** — Full-Stack Developer & ML Engineer.
 
 ## Problem and Solution
 

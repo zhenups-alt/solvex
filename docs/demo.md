@@ -2,8 +2,9 @@
 
 [← Documentation](README.md)
 
-Public video URL: **not published yet**. This is the recording script, not a claim that a
-hosted video or public application is already available.
+Demo video: **in preparation; not published yet**. The recording link will be added when
+ready. This is the recording script, not a claim that a hosted video or public application
+is already available.
 
 ## Preparation
 
