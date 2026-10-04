@@ -14,9 +14,11 @@ the legacy `simple_vault` deployment.
 - Every successful swap emits the backend decision hash for audit correlation.
 - The owner can revoke the agent immediately by changing it or pausing the vault.
 
-`max_principal_base` is denominated in the base mint's smallest unit. For the MVP,
-the intended base mint is a screened stablecoin. No on-chain USD claim is made
-without a trusted oracle.
+`max_principal_base` is denominated in the base mint's smallest unit. The current
+Devnet frontend uses wrapped SOL as the base mint and a Devnet USDC mint as the
+quote mint. USD limits are converted to fixed token-unit limits using a quoted
+SOL price; no continuously enforced on-chain USD claim is made without a trusted oracle.
+The test quote mint does not change production USDC's `Review` classification.
 
 Native SOL is represented as wrapped SOL inside the vault. This keeps both
 custody accounts compatible with Jupiter's token-account based swap flow.

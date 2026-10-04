@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend and documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test:vault
+      - run: npm run build
+      - run: node scripts/check-docs.mjs
+
+  backend:
+    name: Backend tests and migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SOLVEX_DATABASE_URL: sqlite+aiosqlite:///./solvex-ci.db
+      SOLVEX_AUTO_CREATE_TABLES: 'false'
+      SOLVEX_EXECUTION_ENABLED: 'false'
+      GEMINI_API_KEY: ''
+      JUPITER_API_KEY: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: python -m pip install -e './backend[dev]'
+      - run: python -m ruff check backend
+      - run: python -m pytest -q backend/tests
+      - run: python -m alembic -c backend/alembic.ini upgrade head
+      - run: python -m alembic -c backend/alembic.ini check

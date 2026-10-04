@@ -1,198 +1,204 @@
-# Solvex
+<p align="center">
+  <img src="assets/solvex-banner.svg" alt="Solvex — explainable autonomy, policy before execution" width="100%" />
+</p>
 
-Solvex is an autonomous Solana asset manager built around a fail-closed Shariah
-policy and risk pipeline.
+# Solvex — Shariah-Aware AI Asset Manager
 
-The AI can propose a portfolio action. It cannot approve or execute its own proposal:
+[![CI](https://github.com/zhenups-alt/solvex/actions/workflows/ci.yml/badge.svg)](https://github.com/zhenups-alt/solvex/actions/workflows/ci.yml)
+[![Solana Devnet](https://img.shields.io/badge/Solana-Devnet-9945FF)](https://explorer.solana.com/address/8oi1inxaWoWmY7FjEEERuCdbGdCQpfgAg2KHyXFYAkP8?cluster=devnet)
+[![Autopilot](https://img.shields.io/badge/Autopilot-Paper%20Trading-F7C774)](docs/architecture.md)
+[![Shariah screening](https://img.shields.io/badge/Screening-Eligible%20%2F%20Review%20%2F%20Blocked-73D8B1)](docs/shariah-methodology.md)
+
+> AI proposes portfolio actions. A deterministic Shariah Firewall and Risk Engine decide
+> whether they are allowed — with user-defined limits and an explainable decision log.
+
+[Run the MVP](#quick-start) · [3-minute demo guide](docs/demo.md) · [Documentation](docs/README.md) · [Devnet program](https://explorer.solana.com/address/8oi1inxaWoWmY7FjEEERuCdbGdCQpfgAg2KHyXFYAkP8?cluster=devnet)
+
+**Current release: autonomous paper trading + a separate Devnet vault.** Mainnet trading
+is not enabled. No wallet or vault balance funds the virtual portfolio. Solvex does not
+promise returns or claim that every supported asset is universally halal.
+
+![Solvex Autopilot with an explicitly labeled illustrative paper portfolio](assets/autopilot-paper-demo.png)
+
+*UI preview: actual application components in an isolated demo session. Displayed balances
+use illustrative paper data, not live trading performance or a user's funds.*
+
+## Hackathon Submission
+
+Solvex demonstrates wallet ownership, user limits, autonomous virtual execution and
+transparent policy/risk decisions in a Solana asset-management workflow.
+
+- **Repository owner:** [@zhenups-alt](https://github.com/zhenups-alt).
+- **Team names, roles and contacts:** awaiting confirmation from the team.
+- **Public application, video and submission links:** not published yet. Reviewers can use
+  the quick start and [demo guide](docs/demo.md).
+- **Release boundary:** a development MVP, not an audited service accepting public deposits.
+
+## Problem and Solution
+
+### 1. A recommendation is not an execution policy
+
+**Problem:** a persuasive AI response does not prove a trade is permitted.
+**Solvex:** an untrusted proposal passes independent, deterministic asset, protocol,
+transaction and risk checks.
+
+### 2. Shariah screening needs explicit uncertainty
+
+**Problem:** a blanket “halal” label hides disputed mechanisms and missing evidence.
+**Solvex:** versioned `Eligible / Review / Blocked` classifications; disputed or unknown
+cases cannot auto-execute. Qualified review remains a Mainnet prerequisite.
+
+### 3. Automation needs user-controlled boundaries
+
+**Problem:** the agent should not decide its own spending authority.
+**Solvex:** saved capital, trade, turnover, slippage and drawdown limits, with pause/resume.
+Devnet vault limits are separately enforced on-chain in token units.
+
+### 4. Users need to understand what happened
+
+**Problem:** an opaque buy/sell signal does not explain an action or rejection.
+**Solvex:** a persistent journal of proposals, policy outcomes, risk checks and virtual fills,
+alongside portfolio P&L after estimated costs.
+
+## Why Solana
+
+- **Wallet-native ownership:** Phantom message signatures identify users; vault control
+  transactions require the owner's signature.
+- **Program-derived custody:** per-owner PDAs and SPL token accounts provide the vault's
+  on-chain enforcement boundary.
+- **Composability:** Anchor and CPI support the intended constrained spot-swap integration.
+- **On-chain markets:** Jupiter is the planned routing layer for screened Solana spot swaps,
+  not a centralized exchange. End-to-end Mainnet validation remains outstanding.
+- **A testable progression:** Devnet interactions and a separate virtual ledger let the team
+  test ownership, limits and accounting before a public-money release.
+
+## Summary of Features
+
+- Phantom connection and one-use, wallet-signed sign-in challenges.
+- User profiles with investment, per-trade, turnover, slippage and drawdown limits.
+- Versioned Shariah screening with classifications and explanations.
+- Gemini recommendations constrained by allocation rules and independent checks.
+- Server-side paper Autopilot: start, pause, resume, scheduled cycles and persistent history.
+- Virtual SOL/USD accounting: estimated costs, cost basis, P&L and allocation.
+- Price-freshness checks, cooldowns, atomic ledger updates and duplicate-cycle protection.
+- Owner-signed Devnet vault creation, SOL deposit/withdrawal, pause and limit updates.
+- English-first interface with Russian translation.
+
+Live Mainnet swaps, audited public custody, certified Shariah governance and a demonstrated
+profitable strategy are **not** shipped production features. See the [roadmap](docs/roadmap.md).
+
+## Tech Stack
+
+- **On-chain:** Rust, Anchor 0.31.1, Solana, SPL Token.
+- **Frontend:** React 19, Vite 6, TypeScript, Tailwind CSS, Zustand, Phantom, `@solana/web3.js`.
+- **Backend:** Python 3.11+, FastAPI, Pydantic, SQLAlchemy, Alembic.
+- **Persistence:** PostgreSQL; SQLite for local development and isolated tests.
+- **AI and data:** Google Gen AI SDK / Gemini; CoinGecko SOL snapshots.
+- **Execution target:** constrained Jupiter spot routing; live execution disabled.
+- **Verification:** pytest, Ruff, TypeScript checks, Node vault-client tests, GitHub Actions.
+
+## Architecture
 
 ```text
-Market snapshot → AI proposal → Shariah Policy Engine → Risk Engine
-                → transaction simulation → constrained vault execution → Decision Log
+Wallet owner ──► Signed session ──► Saved limits + risk profile
+                                          │
+Market snapshot ──► Allocation rules / optional Gemini proposal
+                                          │
+                              Shariah Policy Engine
+                                          │
+                                     Risk Engine
+                                          │
+                      ┌───────────────────┴────────────────────┐
+                      │                                        │
+                Not permitted                              Permitted
+                      │                                        │
+              No virtual trade                          Paper accounting
+                      │                                        │
+                      └──────────► Decision Log ◄───────────────┘
+
+Separate current path: owner ──► Devnet vault deposit / withdraw / pause
+Future live path:      checks ──► simulation ──► constrained Jupiter / Solana
 ```
 
-Any `Review`, unknown asset, unknown route program, missing evidence, failed risk check,
-or failed simulation stops automatic execution.
+The paper worker cannot sign or send blockchain transactions. An execution flag cannot
+turn it into a live trader. See [architecture and trust boundaries](docs/architecture.md).
 
-> Solvex does not claim that an asset is universally or “100% halal.” `Eligible` means
-> that no blocking condition was found under a specific, versioned technical methodology
-> and that the item was explicitly approved in that version's catalog. It is not a fatwa.
+## Quick Start
 
-## Current implementation
+Prerequisites: **Node.js 22**, **Python 3.11+**, **Docker with Compose** for PostgreSQL.
+Phantom is needed for wallet interaction; Rust/Anchor only for building the program.
+The **Allocation rules** paper strategy does not require an API key.
 
-- React + Vite + TypeScript interface
-- Phantom wallet connection on Solana Devnet
-- FastAPI backend
-- PostgreSQL persistence (SQLite may be used for local smoke tests)
-- Versioned `Eligible / Review / Blocked` Shariah screening
-- Deterministic investment cap, per-trade, turnover, slippage, and drawdown checks
-- Persistent explainable Decision Log
-- Gemini adapter using the official Google Gen AI SDK and structured output
-- Per-user Anchor vault with owner-only custody, pause/revoke, and on-chain limits
-- Anchor vault deployed on Solana Devnet
-- Owner-signed Devnet vault pause/resume and application of saved limits on-chain
-- Execution feature flag defaults to off
-- Autonomous paper portfolio at `/autopilot`: start/pause/resume, persistent server-side cycles,
-  virtual SOL/USD balances, cost-basis accounting, P&L, fees, drawdown, and exportable events
-- Wallet-signed authentication for profile changes, analysis requests, and paper-agent control
-- English by default; an explicitly saved Russian preference is preserved
-
-The Jupiter Router/CPI path is implemented in the vault boundary, but live execution remains
-off until a Jupiter API key is configured, a route passes the policy catalog, simulation
-succeeds, and mainnet readiness is explicitly approved. Canonical Jupiter v6 is not available
-as a Devnet SBF program, so the Devnet deployment cannot be presented as a live Jupiter swap
-environment. No private wallet key belongs in the frontend or database.
-
-## Run locally
-
-Complete the Python backend setup below first. Then one command starts both Vite and FastAPI,
-including the background paper worker:
+From a fresh clone:
 
 ```bash
-npm install
-cp .env.example .env.local
-npm run dev
-```
-
-The app is served at `http://localhost:3000/autopilot`. Keep the terminal running. Closing a
-browser tab does not stop the worker; stopping the backend or sleeping the computer does.
-After restart, persisted running accounts resume from their next due cycle. There is no
-catch-up burst for cycles missed while the server was offline.
-
-Use `npm run dev:web` only if you intentionally run the API in a separate terminal.
-
-## Run PostgreSQL
-
-Start Docker Desktop, then:
-
-```bash
-docker compose up -d postgres
-```
-
-## Run the FastAPI backend
-
-Python 3.11 or newer is required.
-
-```bash
+git clone https://github.com/zhenups-alt/solvex.git
+cd solvex
+npm ci
 python3 -m venv .venv
 .venv/bin/python -m pip install -e './backend[dev]'
+cp .env.example .env.local
 cp backend/.env.example backend/.env
+docker compose up -d --wait postgres
 .venv/bin/alembic -c backend/alembic.ini upgrade head
 npm run dev
 ```
 
-API documentation is available at `http://localhost:8080/docs`.
+Open [the local app](http://localhost:3000/autopilot) and [API docs](http://localhost:8080/docs).
+These are local addresses, not a hosted public demo. Existing installations should preserve
+their environment files and databases; see the [development guide](docs/development.md).
 
-`alembic upgrade head` is for a database managed by migrations. Existing local databases
-created with `SOLVEX_AUTO_CREATE_TABLES=true` automatically receive the new paper/auth tables
-on startup; do not blindly stamp or overwrite an existing database to resolve a migration error.
+1. Connect Phantom and open **Agent limits**.
+2. Save your profile; the first protected action requests a sign-in message signature.
+3. Open **Autopilot**, choose virtual capital within the saved cap and acknowledge paper mode.
+4. Start the agent, inspect its journal, and pause whenever needed.
 
-## Autonomous virtual portfolio
+Keep the backend running for scheduled cycles. Set `GEMINI_API_KEY` only in the ignored
+`backend/.env` to enable Gemini. A Jupiter key is not needed for virtual accounting.
+See [Development](docs/development.md) for SQLite setup, secrets, migrations and vault builds.
 
-1. Connect Phantom and save risk limits. The first protected action requests a free message
-   signature (not a transaction). Challenges expire after five minutes and cannot be replayed.
-2. Open **Autopilot**, sign in if requested, choose an initial virtual USD balance within your
-   saved cap and an interval (1–60 minutes), acknowledge paper mode, then start.
-3. The server runs **Allocation v1**: Conservative/Balanced/Growth target 30/50/70% SOL and
-   rebalance when allocation differs by at least five percentage points. Trades are bounded by
-   available holdings, per-trade limit and UTC daily turnover. A cooldown equals the interval.
-   Exceeding the peak drawdown limit changes the target to zero; permitted sells remain subject
-   to turnover limits. This is not a guaranteed stop-loss or a validated profitable strategy.
-4. Each cycle uses a fresh CoinGecko SOL price (maximum age 180 seconds). An unavailable or
-   stale price creates an error event and a scheduled retry, with no fill or balance mutation.
-5. Paper fills assume adverse slippage of 10 bps, a 10 bps variable fee, and a $0.01 fixed fee.
-   They do not model actual DEX liquidity, market impact or dynamic network fees. The UI shows
-   the price timestamp and marks stale valuations. This is forward paper testing, not a backtest.
-6. Buys add all costs to SOL cost basis; sells release weighted-average cost basis. Total P&L
-   equals realized plus unrealized P&L after estimated costs. Initial capital stays fixed and is
-   never recomputed from a changing SOL price. No real wallet or vault balance funds this ledger.
-7. Pause/resume from the UI. Saving new risk limits pauses a running agent; resume loads the new
-   profile. Journal and balances commit in one database transaction with a version compare-and-swap,
-   so duplicate workers cannot commit the same tick and pause invalidates in-flight work.
-   A 45-second persisted lease also prevents duplicate model requests and expires after a crash.
-
-Paper mode uses `USD_VIRTUAL` and `paper_spot_market` in a separate, explicitly sandbox-only
-catalog. These do **not** exist in the production catalog. USDC remains **Review**. Sandbox
-checks are not Shariah certification and paper fills never create a transaction signature.
-The default decision source is **Allocation rules**, which makes no LLM API calls. Select
-**Gemini** when starting the portfolio to ask the model for a proposal whenever the allocation
-strategy permits a trade. Its proposal must stay within the permitted direction, size and
-spot-only sandbox route, then pass the policy and risk engines. The model can choose HOLD;
-missing/invalid responses and a 20-second timeout fail closed. Gemini mode uses the configured
-API key and may incur provider charges. Quotes are checked for freshness again after the AI call.
-
-Current release boundary: Devnet deposits/withdrawals and autonomous virtual accounting work.
-Mainnet signing/submission, validated Jupiter CPI route construction, independent contract
-audit, qualified asset/protocol screening, deployment operations, and demonstrated strategy
-performance remain outstanding before public deposits. Changing `SOLVEX_EXECUTION_ENABLED`
-alone cannot turn the paper worker into live trading. Existing manual analysis snapshots are
-client-supplied and must not be reused as an authoritative live execution ledger.
-
-Implementation references: [Phantom message signatures](https://docs.phantom.com/solana/signing-a-message)
-and [CoinGecko price freshness](https://docs.coingecko.com/reference/simple-price).
-
-`GEMINI_API_KEY` is optional for policy and risk development. Keep it only in
-`backend/.env`; never expose it through a `VITE_*` variable.
-
-Create project-scoped API credentials in the provider dashboards, then paste them into
-the ignored `backend/.env` file:
-
-```env
-GEMINI_API_KEY=
-JUPITER_API_KEY=
-```
-
-- Gemini keys: `https://aistudio.google.com/apikey`
-- Gemini pricing: `https://ai.google.dev/gemini-api/docs/pricing`
-- Jupiter Developer Portal: `https://developers.jup.ag/portal`
-
-The Gemini key is a backend-only credential. The Jupiter key uses the `jup_...` format
-and is sent to `api.jup.ag` in the `x-api-key` header. Do not paste either key into GitHub,
-the frontend, screenshots, or chat messages.
-
-## Build the Solana vault
-
-The new program lives in `chain/` and has program ID
-`8oi1inxaWoWmY7FjEEERuCdbGdCQpfgAg2KHyXFYAkP8`.
+### Run checks
 
 ```bash
-export PATH="$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
-cd chain
-avm use 0.31.1
-cargo test --workspace
-anchor build
-```
-
-Program and deploy-authority keypairs are generated under `chain/target/deploy/`, which is
-gitignored. They are development credentials and must be backed up separately before a Devnet
-deployment. The deployer address is `BPzBkymfdWFywUYD851PcW9w6Xv6o3qb8nChx7RhxDt5`.
-
-The program was deployed to Devnet in slot `506626832`:
-
-- Program ID: `8oi1inxaWoWmY7FjEEERuCdbGdCQpfgAg2KHyXFYAkP8`
-- Upgrade authority: `BPzBkymfdWFywUYD851PcW9w6Xv6o3qb8nChx7RhxDt5`
-- Deployment signature: `5uqL3bTx5QsCGSakXW9twdWmbMpjBtkCnZteZyGAsEctdNxd65vWZXffhQYBfh4Fr53PLdonL1vgHTLmS4YPQfYM`
-
-## Verify
-
-```bash
+npm run lint
+npm run test:vault
+npm run build
+node scripts/check-docs.mjs
 .venv/bin/ruff check backend
 .venv/bin/pytest -q backend/tests
-npm run lint
-npm run build
-npm run test:vault
 ```
 
-## Security boundary for autonomous execution
+CI runs frontend and backend checks without API keys or blockchain signing. These checks
+are not a smart-contract audit or evidence of profitable performance.
 
-The user-controlled investment cap is enforced twice: USD-denominated in FastAPI and in the
-base mint's smallest unit on-chain. The on-chain design is:
+## Roadmap
 
-1. The user deposits no more than the chosen principal into a dedicated vault PDA.
-2. The vault records owner, delegated agent, pause state, limits, and approved assets/programs.
-3. The agent can invoke only explicitly supported spot-swap paths.
-4. Withdrawals can return assets only to the owner.
-5. Policy/risk decisions and simulation results are persisted before execution.
-6. Backend compromise must not grant access to assets outside the vault or bypass its limits.
+- [x] Wallet connection and authenticated profile changes.
+- [x] Versioned policy/risk checks and explainable decisions.
+- [x] Devnet vault deployment and owner controls.
+- [x] Autonomous paper portfolio with optional Gemini recommendations.
+- [x] Cost-aware accounting, pause/resume and regression tests.
+- [ ] Validated Jupiter routes, transaction simulation and Mainnet submission.
+- [ ] Independent contract/security review and remediation.
+- [ ] Qualified Shariah review and documented catalog governance.
+- [ ] Production deployment, monitoring, rate limits and recovery.
+- [ ] Longer strategy evaluation before any public-money pilot.
 
-The existing `vault-dev` program remains untouched: its upgrade-authority keypair is not in the
-repository and its Raydium CLMM position flow is outside the Solvex spot-only MVP.
+Full acceptance criteria: [docs/roadmap.md](docs/roadmap.md).
+
+## Resources
+
+- [Documentation index](docs/README.md)
+- [Architecture and trust boundaries](docs/architecture.md)
+- [Shariah screening methodology](docs/shariah-methodology.md)
+- [Three-minute demo recording guide](docs/demo.md)
+- [Development and troubleshooting](docs/development.md)
+- [Vault program](chain/README.md) · [Devnet Explorer](https://explorer.solana.com/address/8oi1inxaWoWmY7FjEEERuCdbGdCQpfgAg2KHyXFYAkP8?cluster=devnet)
+- [Contributing](CONTRIBUTING.md) · [Security notes](SECURITY.md)
+
+Public application, presentation, video and submission URLs will be added when available.
+
+## License
+
+No project-wide license has been selected yet. This repository does not currently grant an
+MIT license; third-party packages retain their respective licenses.
