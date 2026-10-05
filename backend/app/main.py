@@ -1,14 +1,17 @@
 import asyncio
 from contextlib import asynccontextmanager, suppress
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import models  # noqa: F401 - registers SQLAlchemy metadata
 from app.api import router
 from app.auth import router as auth_router
 from app.config import get_settings
-from app.db import create_tables
+from app.db import create_tables, get_session
 from app.paper_api import router as paper_router
 from app.services.paper_worker import worker_loop
 
@@ -16,11 +19,12 @@ settings = get_settings()
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(application: FastAPI):
     if settings.auto_create_tables:
         await create_tables()
     stop = asyncio.Event()
     worker = asyncio.create_task(worker_loop(stop))
+    application.state.paper_worker = worker
     try:
         yield
     finally:
@@ -46,6 +50,18 @@ app.add_middleware(
 app.include_router(router)
 app.include_router(auth_router)
 app.include_router(paper_router)
+
+
+@app.get("/ready")
+async def readiness(request: Request, session: AsyncSession = Depends(get_session)) -> dict:
+    worker = getattr(request.app.state, "paper_worker", None)
+    if worker is None or worker.done():
+        raise HTTPException(503, "Paper worker is not running")
+    try:
+        await asyncio.wait_for(session.execute(text("SELECT 1")), timeout=5)
+    except (SQLAlchemyError, TimeoutError):
+        raise HTTPException(503, "Database is not ready") from None
+    return {"ok": True, "database": "ready", "paper_worker": "running"}
 
 
 @app.get("/health")

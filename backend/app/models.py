@@ -76,3 +76,16 @@ class PaperEventRecord(Base):
     version: Mapped[int]
     data: Mapped[dict] = mapped_column(json_type)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PaperSessionRecord(Base):
+    """Immutable completed-session snapshot; events stay in the append-only wallet ledger."""
+
+    __tablename__ = "paper_sessions"
+    __table_args__ = (UniqueConstraint("wallet_address", "start_version"),)
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    wallet_address: Mapped[str] = mapped_column(String(64), index=True)
+    start_version: Mapped[int]
+    end_version: Mapped[int]
+    snapshot: Mapped[dict] = mapped_column(json_type)
+    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

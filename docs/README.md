@@ -5,6 +5,7 @@
 ## Start here
 
 - [Development](development.md): local setup, API credentials, migrations, paper accounting and vault builds.
+- [Deployment](deployment.md): Vercel frontend, persistent backend/database, secrets and release checks.
 - [Architecture](architecture.md): components, data flow and trust boundaries.
 - [Shariah methodology](shariah-methodology.md): classifications, policy scope and review limitations.
 - [Demo recording guide](demo.md): a three-minute English walkthrough using the working MVP.

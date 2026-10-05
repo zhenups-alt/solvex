@@ -162,6 +162,11 @@ Keep the backend running for scheduled cycles. Set `GEMINI_API_KEY` only in the 
 `backend/.env` to enable Gemini. A Jupiter key is not needed for virtual accounting.
 See [Development](docs/development.md) for SQLite setup, secrets, migrations and vault builds.
 
+To start over, choose **End session → Confirm end session** in Autopilot. The previous result
+and journal remain in **Completed sessions**, and a fresh setup form lets you choose a new
+virtual balance, interval and decision source. Ending a paper session does not sell assets
+or modify the separate Devnet vault.
+
 ### Run checks
 
 ```bash

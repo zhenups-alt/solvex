@@ -1,0 +1,10 @@
+.env*
+**/.env*
+.venv/
+backend/
+chain/
+server/
+tests/
+*.db
+**/*.db
+**/*keypair*.json

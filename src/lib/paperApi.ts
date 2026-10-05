@@ -4,6 +4,8 @@ export interface PaperAccount {
   mode: 'paper';
   status: 'running' | 'paused';
   version: number;
+  session_start_version: number;
+  started_at: string;
   next_run_at: string;
   strategy: string;
   live_execution_allowed: false;
@@ -35,6 +37,19 @@ export interface PaperAccount {
   };
 }
 
+export interface PaperSession {
+  id: string;
+  start_version: number;
+  end_version: number;
+  completed_at: string;
+  snapshot: Omit<PaperAccount, 'status'> & { status: 'completed' };
+}
+
+export interface PaperEventsPage {
+  items: PaperEvent[];
+  next_before_version: number | null;
+}
+
 export interface PaperEvent {
   id: string;
   version: number;
@@ -52,7 +67,19 @@ export interface PaperEvent {
 
 const path = (wallet: string) => `/api/v1/paper/${encodeURIComponent(wallet)}`;
 export const getPaperAccount = (wallet: string) => request<{ account: PaperAccount | null }>(path(wallet), undefined, wallet);
-export const getPaperEvents = (wallet: string) => request<{ items: PaperEvent[] }>(`${path(wallet)}/events`, undefined, wallet);
+export const getPaperEvents = (wallet: string, sessionId?: string, beforeVersion?: number) => {
+  const query = new URLSearchParams();
+  if (sessionId) query.set('session_id', sessionId);
+  if (beforeVersion !== undefined) query.set('before_version', String(beforeVersion));
+  return request<PaperEventsPage>(`${path(wallet)}/events?${query}`, undefined, wallet);
+};
+export const getPaperSessions = (wallet: string, beforeVersion?: number) => request<{
+  items: PaperSession[]; next_before_version: number | null;
+}>(`${path(wallet)}/sessions${beforeVersion === undefined ? '' : `?before_version=${beforeVersion}`}`, undefined, wallet);
+export const finishPaper = (wallet: string, sessionStartVersion: number) => request<{ session: PaperSession }>(`${path(wallet)}/finish`, {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ session_start_version: sessionStartVersion, acknowledge_archive: true }),
+}, wallet);
 export const startPaper = (wallet: string, initial: number, interval: number, decisionSource: 'allocation' | 'gemini', language: 'en' | 'ru') => request<{ account: PaperAccount }>(`${path(wallet)}/start`, {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ initial_usd: initial, interval_seconds: interval, acknowledge_virtual: true, decision_source: decisionSource, language }),

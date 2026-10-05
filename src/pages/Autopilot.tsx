@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bot, Check, Download, LoaderCircle, Pause, Play, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Bot, Download, LoaderCircle, Pause, Play, RefreshCw, ShieldCheck, Square } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge, Button, Card } from '../components/UI';
 import { usePhantom } from '../components/WalletContextProvider';
-import { localizeCode, useLanguage } from '../i18n';
+import { useLanguage } from '../i18n';
+import PaperJournal from '../components/PaperJournal';
+import PaperSessionArchive from '../components/PaperSessionArchive';
 import { ApiError, ensureWalletSession, getRiskProfile, hasWalletSession, RiskProfileResponse } from '../lib/solvexApi';
-import { controlPaper, getPaperAccount, getPaperEvents, PaperAccount, PaperEvent, startPaper } from '../lib/paperApi';
+import { controlPaper, finishPaper, getPaperAccount, getPaperEvents, PaperAccount, PaperEvent, startPaper } from '../lib/paperApi';
 
 export default function Autopilot() {
   const { address, signMessage, connect } = usePhantom();
@@ -25,9 +27,12 @@ export default function Autopilot() {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [endVersion, setEndVersion] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
   const money = (value: string | number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(Number(value));
   const timestamp = (value: string | null) => value ? new Date(value).toLocaleString(locale) : '—';
+
+  useEffect(() => { setEndVersion(null); }, [address, account?.session_start_version]);
 
   useEffect(() => {
     setAccount(null); setEvents([]); setProfile(null); setError(null); setLoaded(false);
@@ -96,6 +101,22 @@ export default function Autopilot() {
     if (action === 'run-now' && !result.processed) toast(tr('The next cycle is not due yet, or another worker completed it.', 'Время следующего цикла ещё не наступило или он уже выполнен.'));
   });
 
+  const endSession = () => {
+    if (endVersion === null) return;
+    const sessionVersion = endVersion;
+    return act(async () => {
+      await finishPaper(address!, sessionVersion);
+      if (currentWallet.current !== address) return;
+      // Re-read instead of clearing blindly: another tab might already have started a new session.
+      const [current, savedProfile] = await Promise.all([getPaperAccount(address!), getRiskProfile(address!)]);
+      if (currentWallet.current !== address) return;
+      if (account) { setIntervalValue(account.state.interval_seconds); setDecisionSource(account.state.decision_source); }
+      setProfile(savedProfile); setInitial(String(Math.min(100, Number(savedProfile.investment_cap_usd))));
+      setAccount(current.account); setEvents([]); setEndVersion(null); setAcknowledged(false);
+      toast.success(tr('Session ended. Results and history are saved in Completed sessions. You can start a new portfolio.', 'Сессия завершена. Результат и история сохранены в архиве. Можно запустить новый портфель.'));
+    });
+  };
+
   const exportLog = () => {
     const blob = new Blob([JSON.stringify({ account, events }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -143,8 +164,22 @@ export default function Autopilot() {
       </Card> : <>
         <Card className="p-5 flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-2"><Badge variant={account.status === 'running' ? 'positive' : 'warning'}>{account.status === 'running' ? tr('Running on server', 'Работает на сервере') : tr('Paused', 'На паузе')}</Badge><p className="text-xs text-text-secondary">{tr('Last cycle:', 'Последний цикл:')} {timestamp(account.state.last_cycle_at)} · {account.status === 'running' ? tr(`Next check in ~${nextSeconds}s`, `Следующая проверка через ~${nextSeconds} с`) : tr('Resume to continue', 'Возобновите для продолжения')}</p></div>
-          <div className="flex flex-wrap gap-2"><Button disabled={busy} className="gap-2" onClick={() => void control(account.status === 'running' ? 'pause' : 'resume')}>{account.status === 'running' ? <Pause size={15} /> : <Play size={15} />}{account.status === 'running' ? tr('Pause agent', 'Остановить агента') : tr('Resume agent', 'Возобновить агента')}</Button><Button variant="outline" disabled={busy || account.status !== 'running' || nextSeconds > 0} onClick={() => void control('run-now')}>{tr('Run due cycle', 'Выполнить наступивший цикл')}</Button><Button variant="outline" aria-label={tr('Refresh portfolio', 'Обновить портфель')} onClick={() => setRefreshKey((key) => key + 1)}><RefreshCw size={15} /></Button></div>
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={busy} className="gap-2" onClick={() => void control(account.status === 'running' ? 'pause' : 'resume')}>{account.status === 'running' ? <Pause size={15} /> : <Play size={15} />}{account.status === 'running' ? tr('Pause agent', 'Приостановить агента') : tr('Resume agent', 'Возобновить агента')}</Button>
+            <Button variant="outline" disabled={busy || account.status !== 'running' || nextSeconds > 0} onClick={() => void control('run-now')}>{tr('Run due cycle', 'Выполнить наступивший цикл')}</Button>
+            <Button variant="outline" className="gap-2 border-warning/50 text-warning" disabled={busy} onClick={() => setEndVersion(account.session_start_version)}><Square size={14} />{tr('End session', 'Завершить сессию')}</Button>
+            <Button variant="outline" aria-label={tr('Refresh portfolio', 'Обновить портфель')} onClick={() => setRefreshKey((key) => key + 1)}><RefreshCw size={15} /></Button>
+          </div>
         </Card>
+        {endVersion !== null && <Card className="p-5 space-y-3 border-warning/50" role="region" aria-labelledby="end-session-title">
+          <h2 id="end-session-title" className="font-semibold">{tr('End this virtual session?', 'Завершить эту виртуальную сессию?')}</h2>
+          <p className="text-sm text-text-secondary">{tr('After confirmation, the agent stops and this portfolio becomes a read-only archive. Balances, results and the full journal are preserved. You can then choose a new starting balance, interval and decision source.', 'После подтверждения агент остановится, а портфель перейдёт в архив только для чтения. Баланс, результат и весь журнал сохранятся. Затем можно выбрать новую сумму, интервал и источник решений.')}</p>
+          <p className="text-xs text-warning">{tr('No assets are sold. The snapshot uses the last recorded price, which may be stale. Your wallet and Devnet vault are not affected. This session cannot be resumed.', 'Активы не продаются. Снимок использует последнюю записанную цену, которая может быть устаревшей. Кошелёк и Devnet Vault не затрагиваются. Эту сессию нельзя будет возобновить.')}</p>
+          <div className="flex flex-wrap gap-3">
+            <Button disabled={busy} onClick={() => void endSession()}>{busy ? tr('Ending session…', 'Завершение сессии…') : tr('Confirm end session', 'Подтвердить завершение')}</Button>
+            <Button variant="outline" disabled={busy} onClick={() => setEndVersion(null)}>{tr('Cancel', 'Отмена')}</Button>
+          </div>
+        </Card>}
         {account.state.last_error && <p role="status" className="text-warning text-sm">{account.state.last_error}</p>}
         <p className="text-xs text-text-muted">{tr('Decision source:', 'Источник решений:')} {account.state.decision_source === 'gemini' ? 'Gemini + Allocation v1' : 'Allocation v1'}</p>
         <p className="text-xs text-text-muted">{tr('Market price timestamp:', 'Время рыночной цены:')} {timestamp(account.state.last_mark_at)}</p>
@@ -160,13 +195,10 @@ export default function Autopilot() {
           <Card className="p-5 space-y-4"><h2 className="font-semibold flex gap-2 items-center"><ShieldCheck size={17} />{tr('Active limits', 'Действующие лимиты')}</h2><dl className="grid grid-cols-2 gap-3 text-sm"><dt className="text-text-secondary">{tr('Per trade', 'На сделку')}</dt><dd className="text-right">{money(account.state.profile.max_single_trade_usd)}</dd><dt className="text-text-secondary">{tr('Daily turnover (UTC)', 'Дневной оборот (UTC)')}</dt><dd className="text-right">{money(account.state.daily_turnover_usd)} / {money(account.state.profile.max_daily_turnover_usd)}</dd><dt className="text-text-secondary">{tr('Completed cycles / fills', 'Выполнено циклов / сделок')}</dt><dd className="text-right">{account.state.cycle_count} / {account.state.trade_count}</dd></dl><Link className="inline-block text-sm text-accent underline" to="/agent-config?section=risk">{tr('Edit limits', 'Изменить лимиты')}</Link><p className="text-xs text-text-muted">{tr('Saving new limits pauses Autopilot. Resume it to apply the new profile. On-chain vault limits are separate.', 'Сохранение новых лимитов останавливает автопилот. Возобновите его для применения профиля. Ончейн-лимиты Vault учитываются отдельно.')}</p></Card>
         </div>
         <section className="space-y-4"><div className="flex flex-wrap justify-between items-center gap-3"><h2 className="text-lg font-semibold">{tr('Autopilot journal', 'Журнал автопилота')}</h2><Button size="sm" variant="outline" className="gap-2" onClick={exportLog}><Download size={14} />{tr('Export latest 50 events', 'Скачать последние 50 событий')}</Button></div>
-          {events.map((event) => <Card key={event.id} className="p-5 space-y-3"><div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Badge variant={event.fill ? 'positive' : 'default'}>{event.fill ? tr('Virtual fill', 'Виртуальная сделка') : event.decision ? localizeCode(event.decision.status, language) : event.status}</Badge><span className="font-semibold text-sm uppercase">{event.decision ? localizeCode(event.decision.proposal.action, language) : event.kind.replaceAll('_', ' ')}</span></div><time className="text-xs text-text-muted">{timestamp(event.at)}</time></div>
-            {event.decision && <p className="text-sm text-text-secondary">{event.decision.proposal.rationale}</p>}{event.message && <p className="text-sm text-warning">{event.message}</p>}
-            {event.fill && <p className="text-sm font-mono">{Number(event.fill.quantity_sol).toFixed(6)} SOL × {money(event.fill.price_usd)} · {tr('fees', 'комиссии')} {money(event.fill.fees_usd)} · {event.fill.source}</p>}
-            {event.decision && <details className="text-xs"><summary className="cursor-pointer text-accent flex gap-2 items-center"><Check size={13} />{tr('Show sandbox policy and risk checks', 'Показать тестовые проверки политики и риска')}</summary><div className="mt-3 grid md:grid-cols-2 gap-2">{[...event.decision.shariah.checks, ...event.decision.risk.checks].map((check, index) => <div key={`${check.code}-${index}`} className="rounded bg-bg-base p-3"><div className="flex justify-between gap-2"><span>{check.code}</span><span className={check.outcome === 'pass' ? 'text-positive' : 'text-warning'}>{localizeCode(check.outcome, language)}</span></div><p className="mt-2 text-text-secondary">{check.message}</p></div>)}</div></details>}
-          </Card>)}
+          <PaperJournal events={events} />
         </section>
       </>}
+      {address && signedIn && loaded && <div key={address}><PaperSessionArchive wallet={address} refreshKey={refreshKey} /></div>}
     </div>
   );
 }

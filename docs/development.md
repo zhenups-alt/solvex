@@ -132,6 +132,18 @@ on startup; do not blindly stamp or overwrite an existing database to resolve a 
    profile. Journal and balances commit in one database transaction with a version compare-and-swap,
    so duplicate workers cannot commit the same tick and pause invalidates in-flight work.
    A 45-second persisted lease also prevents duplicate model requests and expires after a crash.
+8. To start over with a different virtual balance, interval or decision source, choose **End
+   session**, then **Confirm end session**. This stops future cycles and archives the current
+   state and complete journal. It does not sell assets or interact with the Devnet vault. The
+   snapshot uses the last recorded price, which can be stale; it is not liquidation proceeds.
+   The setup form reappears for a fresh portfolio. Completed sessions cannot be resumed; inspect
+   them under **Completed sessions**, load older events, or export the loaded events and snapshot.
+   Wallet ledger versions continue increasing across sessions so an old worker cannot commit
+   to a replacement portfolio. Retried confirmations identify the original session, not its successor.
+
+The archive requires the `0003_paper_sessions` migration for migration-managed databases.
+Local installations with `SOLVEX_AUTO_CREATE_TABLES=true` create the new archive table on
+backend restart without modifying existing portfolio or journal records.
 
 Paper mode uses `USD_VIRTUAL` and `paper_spot_market` in a separate, explicitly sandbox-only
 catalog. These do **not** exist in the production catalog. USDC remains **Review**. Sandbox

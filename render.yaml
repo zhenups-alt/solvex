@@ -1,0 +1,29 @@
+# Demo tier only: Free services sleep on idle, stopping the in-process paper worker.
+# Do not change to a paid plan without the owner's approval.
+services:
+  - type: web
+    name: solvex-api
+    runtime: python
+    plan: free
+    buildCommand: python -m pip install ./backend
+    startCommand: python -m app.serve
+    healthCheckPath: /ready
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.12
+      - key: SOLVEX_ENVIRONMENT
+        value: production
+      - key: SOLVEX_AUTO_CREATE_TABLES
+        value: "false"
+      - key: SOLVEX_EXECUTION_ENABLED
+        value: "false"
+      - key: SOLVEX_SOLANA_CLUSTER
+        value: devnet
+      - key: SOLVEX_DATABASE_URL
+        sync: false
+      - key: SOLVEX_CORS_ORIGINS
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: JUPITER_API_KEY
+        sync: false
