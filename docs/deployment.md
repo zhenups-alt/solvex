@@ -39,6 +39,9 @@ not an asyncpg keyword. Certificate and hostname verification remain enabled. Pr
 actual URL-encoded username/password. Never paste a real connection string into documentation,
 GitHub, frontend settings or chat. Provider-specific private database connections may have
 different TLS requirements; do not disable TLS for an internet-accessible database.
+The application and migrations use an explicit TLS context with the `certifi` CA bundle
+for `ssl=verify-full`, so Render does not need a manually installed `~/.postgresql/root.crt`.
+Cloud startup rejects a URL without verified TLS.
 
 ## 2. Reserve the frontend project, then deploy the API
 

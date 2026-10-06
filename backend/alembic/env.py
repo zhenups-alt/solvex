@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from app import models  # noqa: F401
 from app.config import get_settings
+from app.database_tls import database_connect_args
 from app.db import Base
 
 config = context.config
@@ -39,6 +40,7 @@ async def run_async_migrations() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=database_connect_args(config.get_main_option("sqlalchemy.url")),
     )
     async with connectable.connect() as connection:
         await connection.run_sync(run_sync_migrations)

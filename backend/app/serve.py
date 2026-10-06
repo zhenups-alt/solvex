@@ -25,6 +25,8 @@ def validate_deployment(settings: Settings, port: str) -> int:
         raise ValueError("Use a persistent PostgreSQL database with a postgresql+asyncpg URL")
     if "sslmode" in database.query or "channel_binding" in database.query:
         raise ValueError("Use the asyncpg connection format (ssl=verify-full, not libpq options)")
+    if database.query.get("ssl") != "verify-full":
+        raise ValueError("Cloud PostgreSQL requires ssl=verify-full for verified TLS")
     if not settings.cors_origin_list:
         raise ValueError("Set SOLVEX_CORS_ORIGINS to the public frontend HTTPS origin")
     for origin in settings.cors_origin_list:
