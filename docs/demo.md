@@ -2,9 +2,9 @@
 
 [← Documentation](README.md)
 
-Demo video: **in preparation; not published yet**. The recording link will be added when
-ready. This is the recording script, not a claim that a hosted video or public application
-is already available.
+The pitch and product demo have been recorded for the Colosseum submission. This guide
+documents the product walkthrough; public video links can be added when available.
+The [live MVP](https://solvex-mvp.vercel.app) is available to explore with a connected wallet.
 
 ## Preparation
 

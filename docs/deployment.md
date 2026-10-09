@@ -2,8 +2,10 @@
 
 [← Documentation](README.md)
 
-This is a deployment configuration, **not confirmation of a live deployment**. Record a
-public URL only after the provider reports success and the smoke checks below pass.
+The MVP is deployed at [solvex-mvp.vercel.app](https://solvex-mvp.vercel.app). Its backend
+is [solvex-api-tbpw.onrender.com](https://solvex-api-tbpw.onrender.com/ready), backed by
+Neon PostgreSQL. The instructions below explain how to reproduce the deployment. Provider
+availability can change; use the release checks below when validating a new deployment.
 
 ## Services and boundaries
 

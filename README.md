@@ -12,7 +12,7 @@
 > AI proposes portfolio actions. A deterministic Shariah Firewall and Risk Engine decide
 > whether they are allowed — with user-defined limits and an explainable decision log.
 
-[Run the MVP](#quick-start) · [3-minute demo guide](docs/demo.md) · [Documentation](docs/README.md) · [Devnet program](https://explorer.solana.com/address/8oi1inxaWoWmY7FjEEERuCdbGdCQpfgAg2KHyXFYAkP8?cluster=devnet)
+[Open the live MVP](https://solvex-mvp.vercel.app) · [Run locally](#quick-start) · [3-minute demo guide](docs/demo.md) · [Documentation](docs/README.md) · [Devnet program](https://explorer.solana.com/address/8oi1inxaWoWmY7FjEEERuCdbGdCQpfgAg2KHyXFYAkP8?cluster=devnet)
 
 **Current release: autonomous paper trading + a separate Devnet vault.** Mainnet trading
 is not enabled. No wallet or vault balance funds the virtual portfolio. Solvex does not
@@ -29,9 +29,12 @@ Solvex demonstrates wallet ownership, user limits, autonomous virtual execution 
 transparent policy/risk decisions in a Solana asset-management workflow.
 
 - **Repository owner:** [@zhenups-alt](https://github.com/zhenups-alt).
-- **Demo video:** in preparation; the recording link will be added when ready. Reviewers can
-  use the quick start and [demo guide](docs/demo.md).
-- **Public application and submission links:** not published yet.
+- **Live MVP:** [solvex-mvp.vercel.app](https://solvex-mvp.vercel.app). Connect Phantom to
+  explore the paper Autopilot; no deposit is needed. The API may take time to wake after
+  inactivity on Render Free.
+- **Videos:** the pitch and product demo have been recorded for the Colosseum submission.
+  The [demo guide](docs/demo.md) documents the product walkthrough.
+- **Source code:** this repository contains the frontend, backend and Devnet vault program.
 - **Release boundary:** a development MVP, not an audited service accepting public deposits.
 
 ### Team
@@ -206,7 +209,8 @@ Full acceptance criteria: [docs/roadmap.md](docs/roadmap.md).
 - [Vault program](chain/README.md) · [Devnet Explorer](https://explorer.solana.com/address/8oi1inxaWoWmY7FjEEERuCdbGdCQpfgAg2KHyXFYAkP8?cluster=devnet)
 - [Contributing](CONTRIBUTING.md) · [Security notes](SECURITY.md)
 
-Public application, presentation, video and submission URLs will be added when available.
+The [live MVP](https://solvex-mvp.vercel.app) runs on Vercel with a Render API and Neon
+PostgreSQL. Video and submission links can be added when their public URLs are available.
 
 ## License
 
