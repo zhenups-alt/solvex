@@ -2,8 +2,9 @@
 
 [← Documentation](README.md)
 
-The pitch and product demo have been recorded for the Colosseum submission. This guide
-documents the product walkthrough; public video links can be added when available.
+Watch the [pitch](https://youtu.be/glgpi-gw61g) and
+[product demo](https://youtu.be/j6ky3SVytNA) for the Colosseum submission. This guide
+documents the product walkthrough.
 The [live MVP](https://solvex-mvp.vercel.app) is available to explore with a connected wallet.
 
 ## Preparation

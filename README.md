@@ -12,7 +12,7 @@
 > AI proposes portfolio actions. A deterministic Shariah Firewall and Risk Engine decide
 > whether they are allowed — with user-defined limits and an explainable decision log.
 
-[Open the live MVP](https://solvex-mvp.vercel.app) · [Run locally](#quick-start) · [3-minute demo guide](docs/demo.md) · [Documentation](docs/README.md) · [Devnet program](https://explorer.solana.com/address/8oi1inxaWoWmY7FjEEERuCdbGdCQpfgAg2KHyXFYAkP8?cluster=devnet)
+[Open the live MVP](https://solvex-mvp.vercel.app) · [Watch the pitch](https://youtu.be/glgpi-gw61g) · [Watch the product demo](https://youtu.be/j6ky3SVytNA) · [Run locally](#quick-start) · [Documentation](docs/README.md) · [Devnet program](https://explorer.solana.com/address/8oi1inxaWoWmY7FjEEERuCdbGdCQpfgAg2KHyXFYAkP8?cluster=devnet)
 
 **Current release: autonomous paper trading + a separate Devnet vault.** Mainnet trading
 is not enabled. No wallet or vault balance funds the virtual portfolio. Solvex does not
@@ -32,8 +32,9 @@ transparent policy/risk decisions in a Solana asset-management workflow.
 - **Live MVP:** [solvex-mvp.vercel.app](https://solvex-mvp.vercel.app). Connect Phantom to
   explore the paper Autopilot; no deposit is needed. The API may take time to wake after
   inactivity on Render Free.
-- **Videos:** the pitch and product demo have been recorded for the Colosseum submission.
-  The [demo guide](docs/demo.md) documents the product walkthrough.
+- **Pitch video:** [watch on YouTube](https://youtu.be/glgpi-gw61g).
+- **Product demo:** [watch on YouTube](https://youtu.be/j6ky3SVytNA); the
+  [demo guide](docs/demo.md) documents the walkthrough.
 - **Source code:** this repository contains the frontend, backend and Devnet vault program.
 - **Release boundary:** a development MVP, not an audited service accepting public deposits.
 
@@ -210,7 +211,7 @@ Full acceptance criteria: [docs/roadmap.md](docs/roadmap.md).
 - [Contributing](CONTRIBUTING.md) · [Security notes](SECURITY.md)
 
 The [live MVP](https://solvex-mvp.vercel.app) runs on Vercel with a Render API and Neon
-PostgreSQL. Video and submission links can be added when their public URLs are available.
+PostgreSQL. The Colosseum submission link can be added if it becomes public.
 
 ## License
 
