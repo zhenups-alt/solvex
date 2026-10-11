@@ -19,7 +19,7 @@ class MarketDataUnavailable(RuntimeError):
 
 
 class SolMarketDataService:
-    """Small fail-closed market adapter with a short in-process cache."""
+    """Fail-closed market adapter with CoinGecko primary and Coinbase fallback."""
 
     _cached: SolMarketSnapshot | None = None
     _fetched_at = 0.0
@@ -27,6 +27,7 @@ class SolMarketDataService:
     _lock = asyncio.Lock()
     cache_seconds = 60
     endpoint = "https://api.coingecko.com/api/v3/simple/price"
+    fallback_endpoint = "https://api.coinbase.com/v2/prices/SOL-USD/spot"
 
     async def get_snapshot(self) -> SolMarketSnapshot:
         async with self._lock:
@@ -43,6 +44,7 @@ class SolMarketDataService:
         if now < self._retry_after:
             raise MarketDataUnavailable("market data is temporarily unavailable; retry shortly")
 
+        # 1. Attempt Primary: CoinGecko
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 response = await client.get(
@@ -62,20 +64,45 @@ class SolMarketDataService:
                     source="CoinGecko",
                     captured_at=float(payload["last_updated_at"]),
                 )
-                age = time.time() - snapshot.captured_at
-                if (
-                    not snapshot.price_usd.is_finite()
-                    or snapshot.price_usd <= 0
-                    or not snapshot.change_24h_pct.is_finite()
-                    or age > 180
-                    or age < -30
-                ):
-                    raise ValueError("Invalid or stale market data")
-        except (httpx.HTTPError, KeyError, TypeError, ValueError, InvalidOperation) as error:
-            type(self)._retry_after = time.time() + 15
-            raise MarketDataUnavailable("current SOL market data is unavailable") from error
+                self._validate_snapshot(snapshot)
+                self._record_cache(snapshot)
+                return snapshot
+        except Exception as primary_error:
+            # Primary failed or rate limited; attempt Fallback (Coinbase)
+            try:
+                async with httpx.AsyncClient(timeout=10) as client:
+                    fb_response = await client.get(self.fallback_endpoint)
+                    fb_response.raise_for_status()
+                    fb_data = fb_response.json()["data"]
+                    fb_price = Decimal(str(fb_data["amount"]))
+                    fb_time = time.time()
+                    snapshot = SolMarketSnapshot(
+                        price_usd=fb_price,
+                        change_24h_pct=Decimal("0"),
+                        source="Coinbase",
+                        captured_at=fb_time,
+                    )
+                    self._validate_snapshot(snapshot)
+                    self._record_cache(snapshot)
+                    return snapshot
+            except Exception as fallback_error:
+                type(self)._retry_after = time.time() + 15
+                raise MarketDataUnavailable("current SOL market data is unavailable from all providers") from fallback_error
 
-        type(self)._cached = snapshot
-        type(self)._fetched_at = time.time()
-        type(self)._retry_after = 0.0
-        return snapshot
+    @classmethod
+    def _validate_snapshot(cls, snapshot: SolMarketSnapshot) -> None:
+        age = time.time() - snapshot.captured_at
+        if (
+            not snapshot.price_usd.is_finite()
+            or snapshot.price_usd <= 0
+            or not snapshot.change_24h_pct.is_finite()
+            or age > 180
+            or age < -30
+        ):
+            raise ValueError("Invalid or stale market data")
+
+    @classmethod
+    def _record_cache(cls, snapshot: SolMarketSnapshot) -> None:
+        cls._cached = snapshot
+        cls._fetched_at = time.time()
+        cls._retry_after = 0.0

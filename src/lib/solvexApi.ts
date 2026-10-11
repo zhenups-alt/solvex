@@ -181,3 +181,48 @@ export const simulateDecision = (decisionId: string, walletAddress: string) =>
       body: JSON.stringify({ wallet_address: walletAddress }),
     }, walletAddress,
   );
+
+export interface CatalogEntryData {
+  status: 'eligible' | 'review' | 'blocked';
+  rationale: string;
+  evidence: string[];
+}
+
+export interface PolicyCatalogResponse {
+  methodology: {
+    version: string;
+    name: string;
+    disclaimer: string;
+    statuses: Record<string, string>;
+    principles: Array<{
+      code: string;
+      name: string;
+      rule: string;
+    }>;
+  };
+  assets: Record<string, CatalogEntryData>;
+  protocols: Record<string, CatalogEntryData>;
+  transactions: Record<string, CatalogEntryData>;
+}
+
+export interface ScreenSubjectResult {
+  subject_type: 'asset' | 'protocol';
+  identifier: string;
+  status: 'eligible' | 'review' | 'blocked';
+  approved: boolean;
+  code: string;
+  rationale: string;
+  evidence: string[];
+  methodology_version: string;
+}
+
+export const getPolicyCatalog = () =>
+  request<PolicyCatalogResponse>('/api/v1/policy/catalog');
+
+export const screenSubject = (subject_type: 'asset' | 'protocol', identifier: string) =>
+  request<ScreenSubjectResult>('/api/v1/policy/screen-subject', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subject_type, identifier }),
+  });
+

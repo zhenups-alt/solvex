@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useStore, Decision } from '../store';
+import { useStore, Decision, SAMPLE_DEMO_DECISIONS } from '../store';
 
 export const DemoProvider = ({ children }: { children: React.ReactNode }) => {
   const { isDemoMode, addDecision, decisions } = useStore();
@@ -9,25 +9,7 @@ export const DemoProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Initial data if empty
     if (decisions.length === 0) {
-      const initialDecisions: Decision[] = Array.from({ length: 50 }, (_, i) => {
-        const actions: ('BUY_SOL' | 'SELL_SOL' | 'HOLD')[] = ['BUY_SOL', 'SELL_SOL', 'HOLD', 'HOLD', 'HOLD'];
-        const action = actions[Math.floor(Math.random() * actions.length)];
-        return {
-          id: Math.random().toString(36).substr(2, 9),
-          timestamp: new Date(Date.now() - i * 1000 * 60 * 15).toISOString(),
-          action,
-          amount_pct: action === 'HOLD' ? 0 : Math.floor(Math.random() * 15) + 1,
-          confidence: Math.floor(Math.random() * 30) + 70,
-          reasoning: `Simulated reasoning for ${action} based on market conditions.`,
-          key_signals: ['RSI', 'MACD', 'VOL'],
-          risk_flags: [],
-          txHash: Math.random().toString(36).substr(2, 12),
-          vaultTxHash: Math.random().toString(36).substr(2, 12),
-          slot: 284411000 + i,
-          status: 'Confirmed'
-        };
-      });
-      initialDecisions.forEach(d => addDecision(d));
+      SAMPLE_DEMO_DECISIONS.forEach(d => addDecision(d));
     }
 
     // Interval for new HOLD decisions (90s)

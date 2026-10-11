@@ -7,6 +7,7 @@ import {
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { useLanguage } from '../i18n';
+import { useStore } from '../store';
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Animation Wrappers
@@ -51,6 +52,23 @@ function SectionLabel({ children, color = "accent" }: { children: React.ReactNod
       </span>
     </div>
   );
+}
+
+export function getActionBadgeClass(action: string): string {
+  const normalized = action.toUpperCase();
+  if (normalized.includes('BUY')) {
+    return 'bg-positive/10 text-positive border-positive/20';
+  }
+  if (normalized.includes('SELL')) {
+    return 'bg-cta/10 text-cta border-cta/20';
+  }
+  if (normalized.includes('BLOCKED') || normalized.includes('REJECTED')) {
+    return 'bg-negative/10 text-negative border-negative/20';
+  }
+  if (normalized.includes('HOLD')) {
+    return 'bg-warning/10 text-warning border-warning/20';
+  }
+  return 'bg-bg-elevated text-text-secondary border-border-default';
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -122,15 +140,27 @@ function HeroSection() {
               custom={3} variants={itemV} initial="hidden" animate="visible"
               className="flex flex-wrap gap-4"
             >
-              <Link to="/dashboard">
+              <Link to="/autopilot">
                 <button className="group relative inline-flex items-center gap-2 bg-accent text-bg-base font-bold h-14 px-8 rounded-2xl hover:brightness-110 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_30px_rgba(245,158,11,0.3)] overflow-hidden">
                   <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
                   {tr('Launch Terminal', 'Открыть приложение')} <ArrowRight size={18} />
                 </button>
               </Link>
-              <Link to="/docs">
-                <button className="inline-flex items-center gap-2 border border-white/10 bg-white/5 backdrop-blur-sm text-white/80 font-semibold h-14 px-8 rounded-2xl hover:bg-white/10 hover:border-white/20 hover:text-white transition-all">
-                  {tr('Documentation', 'Документация')}
+              <Link 
+                to="/autopilot"
+                onClick={() => {
+                  useStore.getState().setDemoMode(true);
+                }}
+              >
+                <button className="inline-flex items-center gap-2 border border-amber-500/40 bg-amber-500/10 backdrop-blur-sm text-amber-300 font-bold h-14 px-7 rounded-2xl hover:bg-amber-500/20 hover:border-amber-500/60 transition-all">
+                  <Sparkles size={16} />
+                  {tr('Explore Demo (No Wallet)', 'Демо-режим (Без кошелька)')}
+                </button>
+              </Link>
+              <Link to="/screener">
+                <button className="inline-flex items-center gap-2 border border-white/10 bg-white/5 backdrop-blur-sm text-white/80 font-semibold h-14 px-7 rounded-2xl hover:bg-white/10 hover:border-white/20 hover:text-white transition-all">
+                  <Shield size={16} />
+                  {tr('Shariah Screener', 'Shariah-скринер')}
                 </button>
               </Link>
             </motion.div>
@@ -187,7 +217,7 @@ function HeroSection() {
                     <div className="flex items-center justify-between">
                       <div className={cn(
                         "px-3 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase border",
-                        current.action.includes('BUY') ? "bg-positive/10 text-positive border-positive/20" : "bg-negative/10 text-negative border-negative/20"
+                        getActionBadgeClass(current.action)
                       )}>
                         {current.action}
                       </div>

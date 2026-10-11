@@ -7,15 +7,34 @@ import { DecisionLogResponse, getDecisionLogs } from '../lib/solvexApi';
 import { cn } from '../lib/utils';
 import { localizeCode, useLanguage } from '../i18n';
 import { Link } from 'react-router-dom';
+import { getActionBadgeClass } from './LandingPage';
+import { useStore } from '../store';
 
 const statusTone = (status: string) => {
-  if (status === 'executed' || status === 'ready_for_execution') return 'text-positive';
-  if (status.startsWith('blocked') || status === 'simulation_failed') return 'text-negative';
+  const normalized = status.toLowerCase();
+  if (normalized === 'executed' || normalized === 'ready_for_execution' || normalized === 'eligible' || normalized === 'pass') {
+    return 'text-positive';
+  }
+  if (normalized.startsWith('blocked') || normalized === 'simulation_failed' || normalized === 'rejected' || normalized === 'fail') {
+    return 'text-negative';
+  }
+  if (normalized === 'hold' || normalized === 'no_action') {
+    return 'text-warning';
+  }
   return 'text-warning';
+};
+
+const badgeVariantForStatus = (status: string): 'positive' | 'negative' | 'warning' | 'default' => {
+  const normalized = status.toLowerCase();
+  if (normalized === 'eligible' || normalized === 'pass' || normalized === 'executed') return 'positive';
+  if (normalized.startsWith('blocked') || normalized === 'fail' || normalized === 'rejected' || normalized === 'simulation_failed') return 'negative';
+  if (normalized === 'review' || normalized === 'hold' || normalized === 'warning' || normalized === 'no_action') return 'warning';
+  return 'default';
 };
 
 export default function DecisionLogPage() {
   const { address } = usePhantom();
+  const { isDemoMode, decisions: demoDecisions } = useStore();
   const { language, locale, tr } = useLanguage();
   const [items, setItems] = useState<DecisionLogResponse[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -24,6 +43,50 @@ export default function DecisionLogPage() {
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
+    if (isDemoMode && !address) {
+      setItems(
+        demoDecisions.map((d) => ({
+          id: d.id,
+          wallet_address: 'DEMO_WALLET_SIMULATED',
+          status: d.risk_flags.length > 0 ? 'blocked_by_policy' : d.action === 'HOLD' ? 'hold' : 'executed',
+          proposal: {
+            action: (d.action.toLowerCase().replace('_sol', '') as 'buy' | 'sell' | 'hold'),
+            transaction_kind: d.action === 'HOLD' ? 'hold' : 'spot_swap',
+            input_asset: d.action === 'BUY_SOL' ? 'USDC' : 'SOL',
+            output_asset: d.action === 'BUY_SOL' ? 'SOL' : 'USDC',
+            protocol_id: d.risk_flags.length > 0 ? 'jupiter_perpetuals' : 'jupiter_spot_router',
+            amount_usd: String(d.amount_pct * 10),
+            slippage_bps: 50,
+            confidence: d.confidence / 100,
+            rationale: d.reasoning,
+            key_signals: d.key_signals,
+          },
+          shariah: {
+            status: d.risk_flags.length > 0 ? 'blocked' : 'eligible',
+            approved: d.risk_flags.length === 0,
+            methodology_version: 'solvex-shariah-v0.1.0',
+            checks: d.risk_flags.map((flag) => ({
+              code: flag.split(':')[0] || 'SH-02',
+              outcome: 'fail' as const,
+              message: flag,
+              evidence: ['policy:SH-02'],
+            })),
+          },
+          risk: {
+            status: 'eligible',
+            approved: true,
+            methodology_version: 'solvex-risk-v0.1.0',
+            checks: [],
+          },
+          execution_allowed: d.risk_flags.length === 0 && d.action !== 'HOLD',
+          simulation: { mode: 'simulated_demo' },
+          execution: d.action === 'HOLD' ? null : { tx_hash: d.txHash },
+          created_at: d.timestamp,
+        }))
+      );
+      return;
+    }
+
     if (!address) {
       setItems([]);
       return;
@@ -43,7 +106,7 @@ export default function DecisionLogPage() {
   useEffect(() => {
     void load();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address]);
+  }, [address, isDemoMode, demoDecisions.length]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -129,10 +192,10 @@ export default function DecisionLogPage() {
         </div>
       </Card>
 
-      {!address && <Card className="p-8 text-center text-sm text-text-secondary">{tr('Connect Phantom to load the decision log bound to your wallet.', 'Подключите Phantom, чтобы загрузить журнал решений вашего кошелька.')}</Card>}
+      {!address && !isDemoMode && <Card className="p-8 text-center text-sm text-text-secondary">{tr('Connect Phantom to load the decision log bound to your wallet.', 'Подключите Phantom, чтобы загрузить журнал решений вашего кошелька.')}</Card>}
       {error && <Card className="p-6 border-negative/40 text-sm text-negative">{error}</Card>}
 
-      {address && !error && (
+      {(address || isDemoMode) && !error && (
         <Card className="p-0 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -158,11 +221,15 @@ export default function DecisionLogPage() {
                       className={cn('text-sm hover:bg-bg-subtle transition-colors cursor-pointer', expandedId === row.id && 'bg-bg-subtle')}
                     >
                       <td className="px-6 py-4 text-text-secondary">{new Date(row.created_at).toLocaleString(locale)}</td>
-                      <td className="px-6 py-4 uppercase text-xs font-bold">{localizeCode(row.proposal.action, language)}</td>
+                      <td className="px-6 py-4">
+                        <span className={cn('px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border inline-block', getActionBadgeClass(row.proposal.action))}>
+                          {localizeCode(row.proposal.action, language)}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 font-mono">{row.proposal.input_asset || '—'} → {row.proposal.output_asset || '—'}</td>
                       <td className="px-6 py-4 font-mono">${Number(row.proposal.amount_usd).toLocaleString()}</td>
-                      <td className="px-6 py-4"><Badge>{localizeCode(row.shariah.status, language)}</Badge></td>
-                      <td className="px-6 py-4"><Badge>{localizeCode(row.risk.status, language)}</Badge></td>
+                      <td className="px-6 py-4"><Badge variant={badgeVariantForStatus(row.shariah.status)}>{localizeCode(row.shariah.status, language)}</Badge></td>
+                      <td className="px-6 py-4"><Badge variant={badgeVariantForStatus(row.risk.status)}>{localizeCode(row.risk.status, language)}</Badge></td>
                       <td className={cn('px-6 py-4 text-xs font-bold uppercase', statusTone(row.status))}>{localizeCode(row.status, language)}</td>
                     </tr>
                     {expandedId === row.id && (

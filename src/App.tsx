@@ -17,10 +17,14 @@ const AutopilotPage = lazy(() => import('./pages/Autopilot'));
 const AgentConfigPage = lazy(() => import('./pages/AgentConfig'));
 const AnalyticsPage = lazy(() => import('./pages/Analytics'));
 const DecisionLogPage = lazy(() => import('./pages/DecisionLog'));
+import { DemoBanner } from './components/DemoBanner';
+import { DemoProvider } from './components/DemoProvider';
+
 const ArchitecturePage = lazy(() => import('./pages/Architecture'));
 const HowItWorksPage = lazy(() => import('./pages/HowItWorks'));
 const DocsPage = lazy(() => import('./pages/Docs'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
+const ScreenerPage = lazy(() => import('./pages/Screener'));
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
@@ -28,6 +32,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <div className="min-h-screen flex flex-col bg-bg-base">
+        <DemoBanner />
         <TopNav />
 
         <div className={cn("flex flex-1", !isLanding ? "pt-16" : "")}>
@@ -56,23 +61,26 @@ export default function App() {
   const { tr } = useLanguage();
   return (
     <Router>
-      <Layout>
-        <Suspense fallback={<div className="p-8 text-sm text-text-muted">{tr('Loading Solvex…', 'Загрузка Solvex…')}</div>}>
-          <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/vault" element={<VaultPage />} />
-          <Route path="/autopilot" element={<AutopilotPage />} />
-          <Route path="/agent-config" element={<AgentConfigPage />} />
-          <Route path="/analytics" element={<AnalyticsPage />} />
-          <Route path="/decisions" element={<DecisionLogPage />} />
-          <Route path="/architecture" element={<ArchitecturePage />} />
-          <Route path="/how-it-works" element={<HowItWorksPage />} />
-          <Route path="/docs" element={<DocsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          </Routes>
-        </Suspense>
-      </Layout>
+      <DemoProvider>
+        <Layout>
+          <Suspense fallback={<div className="p-8 text-sm text-text-muted">{tr('Loading Solvex…', 'Загрузка Solvex…')}</div>}>
+            <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/vault" element={<VaultPage />} />
+            <Route path="/autopilot" element={<AutopilotPage />} />
+            <Route path="/agent-config" element={<AgentConfigPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/decisions" element={<DecisionLogPage />} />
+            <Route path="/architecture" element={<ArchitecturePage />} />
+            <Route path="/how-it-works" element={<HowItWorksPage />} />
+            <Route path="/docs" element={<DocsPage />} />
+            <Route path="/screener" element={<ScreenerPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            </Routes>
+          </Suspense>
+        </Layout>
+      </DemoProvider>
     </Router>
   );
 }

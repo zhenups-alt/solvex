@@ -49,14 +49,27 @@ For an existing account, show its recorded decision source and active limits ins
 > stop the agent, provided the backend remains running. Every proposed action must pass policy
 > and risk checks. Missing or invalid market data prevents a virtual trade.
 
-## 01:20–01:45 — Show the Shariah Firewall
+## 01:20–01:45 — Interactive Shariah Asset Screener & Firewall
 
-**Screen:** open Show sandbox policy and risk checks in the Autopilot journal.
+**Screen:** `/screener` page (or open Show sandbox policy and risk checks in the Autopilot journal).
 
-> This is our core feature: the Shariah Firewall. It screens transaction types, assets,
-> protocols, and routes, including restrictions on leverage, derivatives, and interest-based
-> mechanisms. The methodology distinguishes Eligible, Review, and Blocked. Uncertain cases
-> do not receive automatic approval. This is structured screening, not universal halal certification.
+> This is our core differentiator: the deterministic Shariah Firewall. In our live screener at `/screener`,
+> judges and users can evaluate any asset or protocol against versioned policy rules (`solvex-shariah-v0.1.0`).
+> Watch how testing native SOL returns `Eligible` for spot ownership, USDC triggers `Review` because
+> reserve compositions require ongoing review, and Jupiter Perpetuals is immediately `Blocked` under Rule SH-02
+> against leverage and derivatives. Notice that entering an unvetted custom token mint or unknown route fails
+> closed under Rule SH-06 — uncertainty never auto-executes. This is a reproducible technical screening
+> framework, not a fatwa.
+
+## Interactive Demo Mode (For Quick Judging Without Wallet / Devnet SOL)
+
+**Screen:** Home page hero "Explore Demo (No Wallet)" CTA or persistent amber Demo Banner.
+
+> For hackathon evaluators without a Solana wallet or Devnet SOL, clicking "Explore Demo" enables an
+> isolated simulation mode marked with a persistent amber indicator. Evaluators can explore live-rendered
+> charts, agent limits, and full decision trails featuring approved spot BUYs, deliberate risk-management HOLDs,
+> and firewall-blocked margin attempts with zero blockchain execution or private key requirements. Reset sample
+> data at any time with one click.
 
 ## 01:45–02:10 — Explain a decision
 

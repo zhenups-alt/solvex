@@ -10,13 +10,19 @@ import {
   Settings2,
   ChevronRight,
   Info,
-  Save
+  Save,
+  CheckCircle,
+  Lock,
+  ExternalLink,
+  Database,
+  AlertTriangle
 } from 'lucide-react';
 import { Card, Button, Badge } from '../components/UI';
 import { AgentConfig, useStore } from '../store';
 import { cn } from '../lib/utils';
 import { usePhantom } from '../components/WalletContextProvider';
 import { ensureWalletSession, getRiskProfile, saveRiskProfile } from '../lib/solvexApi';
+import { SOLVEX_AGENT, VAULT_PROGRAM_ID } from '../lib/vaultClient';
 import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../i18n';
@@ -272,17 +278,329 @@ DECISION FRAMEWORK:
             </div>
           )}
 
-          {/* Other sections would follow similar patterns */}
-          {['model', 'data', 'execution', 'notifications', 'keypair'].includes(activeSection) && (
-            <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-              <div className="w-12 h-12 rounded-full bg-bg-elevated flex items-center justify-center text-text-muted">
-                <Settings2 size={24} />
-              </div>
+          {activeSection === 'model' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div>
-                <h3 className="text-md font-semibold text-text-primary">{sections.find(s => s.id === activeSection)?.name}</h3>
-                <p className="text-sm text-text-secondary mt-1">{tr('This section is available in the full version.', 'Этот раздел будет доступен в полной версии.')}</p>
+                <h2 className="text-lg font-semibold text-text-primary">{tr('AI Model Settings', 'Настройки ИИ-модели')}</h2>
+                <p className="text-sm text-text-secondary mt-1">{tr('Configuration of the Gemini agent that produces structured trade proposals.', 'Конфигурация агента Gemini, формирующего структурированные торговые предложения.')}</p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setActiveSection('risk')}>{tr('Return to investment limits', 'Вернуться к лимитам')}</Button>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">{tr('Active Model', 'Активная модель')}</span>
+                    <Badge variant="accent">gemini-3.5-flash-lite</Badge>
+                  </div>
+                  <div>
+                    <div className="text-base font-bold text-text-primary">Google Gemini 3.5 Flash Lite</div>
+                    <p className="text-xs text-text-secondary mt-1">
+                      {tr('Configured via server environment (SOLVEX_GEMINI_MODEL). Produces structured proposals constrained by Pydantic schema.', 'Настроено через переменную окружения сервера (SOLVEX_GEMINI_MODEL). Выдаёт строго структурированные предложения по схеме Pydantic.')}
+                    </p>
+                  </div>
+                  <div className="pt-3 border-t border-border-subtle flex justify-between text-xs">
+                    <span className="text-text-muted">{tr('Output mode', 'Формат вывода')}</span>
+                    <span className="font-mono text-text-primary">JSON Schema (Strict)</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-text-muted">{tr('Temperature', 'Температура')}</span>
+                    <span className="font-mono text-text-primary">0.1 ({tr('Deterministic', 'Детерминированный')})</span>
+                  </div>
+                </Card>
+
+                <Card className="p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">{tr('Fallback Mode', 'Резервный режим')}</span>
+                    <Badge variant="positive">{tr('Allocation v1 Rules', 'Правила Allocation v1')}</Badge>
+                  </div>
+                  <div>
+                    <div className="text-base font-bold text-text-primary">{tr('Fail-Closed Fallback', 'Защитное переключение')}</div>
+                    <p className="text-xs text-text-secondary mt-1">
+                      {tr('If the Gemini API key is unset or errors out, Solvex automatically falls back to rule-based allocation or HOLD. Execution never proceeds without verification.', 'Если ключ Gemini отсутствует или возвращает ошибку, Solvex автоматически переключается на правила Allocation v1 или HOLD. Исполнение никогда не происходит без проверки.')}
+                    </p>
+                  </div>
+                  <div className="pt-3 border-t border-border-subtle flex justify-between text-xs">
+                    <span className="text-text-muted">{tr('Default behavior on error', 'Поведение при ошибке')}</span>
+                    <span className="font-mono text-warning">HOLD (No trade)</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-text-muted">{tr('Authority', 'Полномочия')}</span>
+                    <span className="text-text-primary">{tr('Advisor only (No execution rights)', 'Только советник (без прав исполнения)')}</span>
+                  </div>
+                </Card>
+              </div>
+
+              <Card className="p-6 space-y-3 bg-bg-card border-border-subtle">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-text-muted">
+                  <Info size={14} className="text-accent" />
+                  {tr('Architecture Note: Server-Managed LLM', 'Архитектура: серверное управление LLM')}
+                </div>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  {tr('The Gemini API key is held securely in the backend environment and is never exposed to the client. Model parameters are version-controlled with the policy pipeline to maintain reproducibility across audit logs.', 'Ключ Gemini API хранится на бэкенде и никогда не передаётся в браузер. Параметры модели версионируются вместе с политиками для воспроизводимости журналов аудита.')}
+                </p>
+              </Card>
+            </div>
+          )}
+
+          {activeSection === 'data' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div>
+                <h2 className="text-lg font-semibold text-text-primary">{tr('Market Data Sources', 'Источники рыночных данных')}</h2>
+                <p className="text-sm text-text-secondary mt-1">{tr('How pricing and volatility data are ingested, validated, and cached.', 'Как цены и данные о волатильности поступают, валидируются и кэшируются.')}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">{tr('Primary Provider', 'Основной провайдер')}</span>
+                    <Badge variant="accent">CoinGecko API v3</Badge>
+                  </div>
+                  <div>
+                    <div className="text-base font-bold text-text-primary">SOL/USD Live Feed</div>
+                    <p className="text-xs text-text-secondary mt-1">
+                      {tr('Queries CoinGecko simple price endpoint with 24h change and last updated timestamp.', 'Запрашивает котировки CoinGecko с 24-часовым изменением цены и меткой времени обновления.')}
+                    </p>
+                  </div>
+                  <div className="pt-3 border-t border-border-subtle space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-text-muted">{tr('Cache TTL', 'Время кэша')}</span>
+                      <span className="font-mono text-text-primary">60 {tr('seconds', 'секунд')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-text-muted">{tr('Max data staleness', 'Макс. устаревание данных')}</span>
+                      <span className="font-mono text-text-primary">180 {tr('seconds', 'секунд')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-text-muted">{tr('Cooldown on failure', 'Пауза при ошибке')}</span>
+                      <span className="font-mono text-text-primary">15 {tr('seconds', 'секунд')}</span>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">{tr('Data Integrity', 'Целостность данных')}</span>
+                    <Badge variant="positive">{tr('Fail-Closed Gate', 'Запрет при ошибке')}</Badge>
+                  </div>
+                  <div>
+                    <div className="text-base font-bold text-text-primary">{tr('Sanity & Freshness Checks', 'Проверки корректности')}</div>
+                    <p className="text-xs text-text-secondary mt-1">
+                      {tr('Before market data is accepted, the backend validates price positivity, finite values, and timestamp bounds.', 'Перед принятием рыночных данных сервер проверяет положительность цены, корректность чисел и диапазон времени.')}
+                    </p>
+                  </div>
+                  <div className="pt-3 border-t border-border-subtle space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-text-muted">{tr('Stale data action', 'Действие при устаревании')}</span>
+                      <span className="text-negative font-mono">MarketDataUnavailable</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-text-muted">{tr('Pipeline reaction', 'Реакция пайплайна')}</span>
+                      <span className="text-warning font-mono">Automatic HOLD</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-text-muted">{tr('Endpoint', 'Эндпоинт')}</span>
+                      <span className="font-mono text-accent">/api/v1/market/sol</span>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              <Card className="p-6 space-y-3 bg-bg-card border-border-subtle">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-text-muted">
+                  <Database size={14} className="text-accent" />
+                  {tr('Oracle Roadmap', 'План по оракулам')}
+                </div>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  {tr('Currently, market data is ingested via an off-chain gateway to maintain high rate limits on Devnet. Pyth on-chain oracle feeds are supported by the Solana runtime and are scheduled for Mainnet deployment.', 'В Devnet котировки опрашиваются через серверный шлюз. Ончейн-оракулы Pyth запланированы для запуска в Mainnet.')}
+                </p>
+              </Card>
+            </div>
+          )}
+
+          {activeSection === 'execution' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div>
+                <h2 className="text-lg font-semibold text-text-primary">{tr('Execution Rules & Enforced Limits', 'Правила исполнения и лимиты')}</h2>
+                <p className="text-sm text-text-secondary mt-1">{tr('Deterministic policy checks executed before any transaction is signed or simulated.', 'Детерминированные проверки политик перед любой подписью или симуляцией.')}</p>
+              </div>
+
+              <div className="space-y-4">
+                <Card className="p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">{tr('Shariah Firewall (Version solvex-shariah-v0.1.0)', 'Shariah Firewall (Версия solvex-shariah-v0.1.0)')}</span>
+                    <Badge variant="accent">3 Checks</Badge>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                    <div className="p-3 rounded-lg bg-bg-base border border-border-subtle space-y-1">
+                      <div className="font-mono text-accent font-bold">SH-01-INTEREST</div>
+                      <div className="text-text-primary font-medium">{tr('Zero Interest (Riba)', 'Запрет процентов (Риба)')}</div>
+                      <div className="text-text-muted">{tr('Strict ban on lending pools and yield tokens earning interest.', 'Строгий запрет лендинг-пулов и доходных токенов.')}</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-bg-base border border-border-subtle space-y-1">
+                      <div className="font-mono text-accent font-bold">SH-02-LEVERAGE</div>
+                      <div className="text-text-primary font-medium">{tr('Zero Leverage (Gharar)', 'Запрет плеча (Гарар)')}</div>
+                      <div className="text-text-muted">{tr('Prohibits margin trading, borrowed capital, and perpetual contracts.', 'Запрет маржинальной торговли и бессрочных фьючерсов.')}</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-bg-base border border-border-subtle space-y-1">
+                      <div className="font-mono text-accent font-bold">SH-03-DERIVATIVE</div>
+                      <div className="text-text-primary font-medium">{tr('Zero Derivatives (Maysir)', 'Запрет деривативов (Майсир)')}</div>
+                      <div className="text-text-muted">{tr('Spot-only exchange; options, synthetic assets, and futures fail closed.', 'Только спот-обмен; опционы и синтетические активы запрещены.')}</div>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">{tr('Risk Engine (Version solvex-risk-v0.1.0)', 'Risk Engine (Версия solvex-risk-v0.1.0)')}</span>
+                    <Badge variant="accent">7 Checks</Badge>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    <div className="p-3 rounded-lg bg-bg-base border border-border-subtle space-y-1">
+                      <div className="font-mono text-text-muted font-bold">RK-01</div>
+                      <div className="text-text-primary font-medium">{tr('Agent Enabled', 'Агент активен')}</div>
+                      <div className="text-text-muted">{tr('Blocks if agent paused.', 'Блокирует при паузе.')}</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-bg-base border border-border-subtle space-y-1">
+                      <div className="font-mono text-text-muted font-bold">RK-02</div>
+                      <div className="text-text-primary font-medium">{tr('Principal Cap', 'Лимит депозита')}</div>
+                      <div className="text-text-muted">{tr('Enforces total cap.', 'Проверяет общий лимит.')}</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-bg-base border border-border-subtle space-y-1">
+                      <div className="font-mono text-text-muted font-bold">RK-04</div>
+                      <div className="text-text-primary font-medium">{tr('Single Trade', 'Лимит сделки')}</div>
+                      <div className="text-text-muted">{tr('Max USD per order.', 'Макс. USD на ордер.')}</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-bg-base border border-border-subtle space-y-1">
+                      <div className="font-mono text-text-muted font-bold">RK-05</div>
+                      <div className="text-text-primary font-medium">{tr('Daily Turnover', 'Дневной оборот')}</div>
+                      <div className="text-text-muted">{tr('24h volume limit.', 'Лимит объёма за 24ч.')}</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div className="p-3 rounded-lg bg-bg-base border border-border-subtle space-y-1">
+                      <div className="font-mono text-text-muted font-bold">RK-03</div>
+                      <div className="text-text-primary font-medium">{tr('Available Value', 'Доступный объём')}</div>
+                      <div className="text-text-muted">{tr('Trade amount cannot exceed vault equity.', 'Размер сделки не может превышать стоимость хранилища.')}</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-bg-base border border-border-subtle space-y-1">
+                      <div className="font-mono text-text-muted font-bold">RK-06</div>
+                      <div className="text-text-primary font-medium">{tr('Max Slippage BPS', 'Макс. проскальзывание')}</div>
+                      <div className="text-text-muted">{tr('Enforces basis-point limits against price impact.', 'Ограничивает допустимое отклонение цены.')}</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-bg-base border border-border-subtle space-y-1">
+                      <div className="font-mono text-text-muted font-bold">RK-07</div>
+                      <div className="text-text-primary font-medium">{tr('Drawdown Guard', 'Защита от просадки')}</div>
+                      <div className="text-text-muted">{tr('Halts buys on drawdown; allows de-risking sells.', 'Блокирует покупки при просадке; разрешает защитные продажи.')}</div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'notifications' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div>
+                <h2 className="text-lg font-semibold text-text-primary">{tr('Notifications & Alerts', 'Уведомления и оповещения')}</h2>
+                <p className="text-sm text-text-secondary mt-1">{tr('How you receive updates regarding rebalancing events, policy blocks, and errors.', 'Как вы получаете информацию о ребалансировках, блокировках и ошибках.')}</p>
+              </div>
+
+              <div className="space-y-4">
+                <Card className="p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-positive/10 text-positive flex items-center justify-center">
+                        <CheckCircle size={18} />
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-text-primary">{tr('In-App Toast Notifications', 'Всплывающие уведомления в приложении')}</div>
+                        <div className="text-xs text-text-secondary">{tr('Real-time feedback via Sonner toast manager.', 'Мгновенные уведомления о статусе через Sonner.')}</div>
+                      </div>
+                    </div>
+                    <Badge variant="positive">{tr('Active', 'Активно')}</Badge>
+                  </div>
+                  <p className="text-xs text-text-secondary">
+                    {tr('All transaction lifecycle events (wallet challenge sign-in, limit updates, pause states, virtual fills, and errors) deliver immediate visual toasts on the top right of the terminal.', 'Все события (вход по подписи, сохранение лимитов, смена паузы, сделки и ошибки) отображаются в реальном времени в правом верхнем углу интерфейса.')}
+                  </p>
+                </Card>
+
+                <Card className="p-6 space-y-4 opacity-75">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-bg-elevated text-text-muted flex items-center justify-center">
+                        <Bell size={18} />
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-text-primary">{tr('Telegram & Webhook Alerts', 'Оповещения в Telegram и Webhook')}</div>
+                        <div className="text-xs text-text-secondary">{tr('External notification delivery for autonomous events.', 'Внешняя доставка уведомлений об автономных событиях.')}</div>
+                      </div>
+                    </div>
+                    <Badge variant="default">{tr('Roadmap (Post-Hackathon)', 'В разработке')}</Badge>
+                  </div>
+                  <p className="text-xs text-text-secondary">
+                    {tr('External notification delivery via Telegram bots and custom webhooks is scheduled for the mainnet release. In the current Devnet release, all decision events are logged in the immutable Decision Log and Autopilot Journal.', 'Внешние уведомления через Telegram и вебхуки запланированы в релизе для Mainnet. В текущей версии для Devnet все события аудита фиксируются в Журнале решений и журнале Автопилота.')}
+                  </p>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'keypair' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div>
+                <h2 className="text-lg font-semibold text-text-primary">{tr('Agent Keypair & Signing Architecture', 'Ключ агента и архитектура подписи')}</h2>
+                <p className="text-sm text-text-secondary mt-1">{tr('How cryptographic authorization is partitioned between vault owner and autonomous agent.', 'Как разделены криптографические права между владельцем хранилища и агентом.')}</p>
+              </div>
+
+              <div className="space-y-4">
+                <Card className="p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">{tr('Designated Agent Public Key', 'Публичный ключ назначенного агента')}</span>
+                    <Badge variant="solana">Solana Devnet</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-bg-base border border-border-subtle font-mono text-xs text-text-primary">
+                    <span className="truncate mr-2">{SOLVEX_AGENT.toBase58()}</span>
+                    <a
+                      href={`https://explorer.solana.com/address/${SOLVEX_AGENT.toBase58()}?cluster=devnet`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-accent hover:underline flex items-center gap-1 shrink-0"
+                    >
+                      {tr('Explorer', 'Explorer')} <ExternalLink size={12} />
+                    </a>
+                  </div>
+                  <p className="text-xs text-text-secondary">
+                    {tr('This public key is the designated agent authority configured in each on-chain vault PDA. It has restricted privileges: it can only propose swaps up to the owner-configured limit.', 'Этот публичный ключ является доверенным агентом в ончейн-программе Vault. Его полномочия ограничены: он может только инициировать обмен в пределах лимитов, заданных владельцем.')}
+                  </p>
+                </Card>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card className="p-6 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+                      <Lock size={16} className="text-positive" />
+                      {tr('Owner Authority (Your Wallet)', 'Полномочия владельца (Ваш кошелёк)')}
+                    </div>
+                    <ul className="space-y-2 text-xs text-text-secondary list-disc pl-4">
+                      <li>{tr('Deposit & withdraw principal at any time', 'Внесение и вывод депозита в любой момент')}</li>
+                      <li>{tr('Pause and unpause vault execution instantly', 'Мгновенная постановка и снятие хранилища с паузы')}</li>
+                      <li>{tr('Configure maximum drawdown, trade size, and turnover', 'Настройка лимитов просадки, сделки и оборота')}</li>
+                      <li>{tr('Replace or revoke the agent public key', 'Смена или полный отзыв ключа агента')}</li>
+                    </ul>
+                  </Card>
+
+                  <Card className="p-6 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+                      <Shield size={16} className="text-accent" />
+                      {tr('Agent Limitations (Non-Custodial)', 'Ограничения агента (Некастодиально)')}
+                    </div>
+                    <ul className="space-y-2 text-xs text-text-secondary list-disc pl-4">
+                      <li>{tr('CANNOT withdraw funds or change recipient accounts', 'НЕ МОЖЕТ выводить средства или менять получателя')}</li>
+                      <li>{tr('CANNOT exceed single-trade or daily limits', 'НЕ МОЖЕТ превышать лимиты одной сделки и оборота')}</li>
+                      <li>{tr('CANNOT trade when the vault is paused by owner', 'НЕ МОЖЕТ торговать, если хранилище на паузе')}</li>
+                      <li>{tr('Private keys are stored in encrypted server HSM/env', 'Приватные ключи агента хранятся на сервере и недоступны в вебе')}</li>
+                    </ul>
+                  </Card>
+                </div>
+              </div>
             </div>
           )}
         </div>

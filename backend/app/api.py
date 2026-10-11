@@ -18,6 +18,7 @@ from app.domain.types import (
     TradeProposal,
 )
 from app.models import DecisionLogRecord, PaperAccountRecord, PaperEventRecord, RiskProfileRecord
+from app.policy.catalog import ASSET_CATALOG, PROTOCOL_CATALOG, TRANSACTION_CATALOG
 from app.policy.methodology import METHODOLOGY
 from app.services.decision_pipeline import DecisionPipeline
 from app.services.gemini_agent import GeminiPortfolioAgent
@@ -89,6 +90,101 @@ async def get_sol_market_data() -> dict:
 @router.post("/policy/screen")
 async def screen_proposal(proposal: TradeProposal):
     return ShariahPolicyEngine().screen(proposal)
+
+
+@router.get("/policy/catalog")
+async def get_policy_catalog() -> dict:
+    return {
+        "methodology": METHODOLOGY,
+        "assets": {
+            symbol: {
+                "status": entry.status.value,
+                "rationale": entry.rationale,
+                "evidence": list(entry.evidence),
+            }
+            for symbol, entry in ASSET_CATALOG.items()
+        },
+        "protocols": {
+            pid: {
+                "status": entry.status.value,
+                "rationale": entry.rationale,
+                "evidence": list(entry.evidence),
+            }
+            for pid, entry in PROTOCOL_CATALOG.items()
+        },
+        "transactions": {
+            kind.value: {
+                "status": entry.status.value,
+                "rationale": entry.rationale,
+                "evidence": list(entry.evidence),
+            }
+            for kind, entry in TRANSACTION_CATALOG.items()
+        },
+    }
+
+
+class ScreenSubjectRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    subject_type: Literal["asset", "protocol"]
+    identifier: str
+
+
+@router.post("/policy/screen-subject")
+async def screen_subject(payload: ScreenSubjectRequest):
+    identifier = payload.identifier.strip()
+    if not identifier:
+        raise HTTPException(status_code=400, detail="identifier cannot be empty")
+
+    engine = ShariahPolicyEngine()
+    if payload.subject_type == "asset":
+        key = identifier.upper()
+        entry = engine.assets.get(key)
+        if entry is None:
+            # Check if it looks like a Solana address (base58, roughly 32-44 characters)
+            return {
+                "subject_type": "asset",
+                "identifier": identifier,
+                "status": "review",
+                "approved": False,
+                "code": "SH-06-UNCERTAINTY",
+                "rationale": f"Asset '{identifier}' is not present in the verified policy catalog. Unknown or unvetted assets fail closed and cannot be auto-executed.",
+                "evidence": ["policy:SH-04", "policy:SH-06"],
+                "methodology_version": engine.methodology_version,
+            }
+        return {
+            "subject_type": "asset",
+            "identifier": key,
+            "status": entry.status.value,
+            "approved": entry.status.value == "eligible",
+            "code": "SH-04-PURPOSE" if entry.status.value == "eligible" else "SH-06-REVIEW",
+            "rationale": entry.rationale,
+            "evidence": list(entry.evidence),
+            "methodology_version": engine.methodology_version,
+        }
+    else:
+        key = identifier.lower()
+        entry = engine.protocols.get(key)
+        if entry is None:
+            return {
+                "subject_type": "protocol",
+                "identifier": identifier,
+                "status": "review",
+                "approved": False,
+                "code": "SH-05-PROTOCOL",
+                "rationale": f"Protocol or route program '{identifier}' is not present in the approved policy catalog. Every program must be explicitly vetted and allowlisted.",
+                "evidence": ["policy:SH-05", "policy:SH-06"],
+                "methodology_version": engine.methodology_version,
+            }
+        return {
+            "subject_type": "protocol",
+            "identifier": key,
+            "status": entry.status.value,
+            "approved": entry.status.value == "eligible",
+            "code": "SH-02-DERIVATIVE" if entry.status.value == "blocked" else "SH-05-PROTOCOL",
+            "rationale": entry.rationale,
+            "evidence": list(entry.evidence),
+            "methodology_version": engine.methodology_version,
+        }
 
 
 @router.put("/profiles/{wallet_address}", response_model=ProfileResponse)

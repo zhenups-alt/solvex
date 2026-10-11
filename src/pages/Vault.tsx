@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Bot,
   Check,
+  Coins,
   Copy,
   ExternalLink,
   LoaderCircle,
@@ -10,7 +11,9 @@ import {
   Plus,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
   Wallet,
+  AlertCircle,
 } from 'lucide-react';
 import { PublicKey } from '@solana/web3.js';
 import { toast } from 'sonner';
@@ -132,16 +135,27 @@ export default function VaultPage() {
       toast.error(tr('Enter a valid SOL amount', 'Укажите корректную сумму SOL'));
       return;
     }
-    const remaining = Number(vaultState.maxPrincipalBase - vaultState.depositedPrincipalBase) / 1_000_000_000;
-    if (amount > remaining) {
+    const remainingLamports = vaultState.maxPrincipalBase - vaultState.depositedPrincipalBase;
+    const remainingSol = Number(remainingLamports) / 1_000_000_000;
+    if (amount > remainingSol) {
       toast.error(tr('Deposit exceeds your vault limit', 'Пополнение превышает лимит хранилища'), {
-        description: tr(`You can add up to ${remaining.toFixed(9)} SOL.`, `Можно внести ещё ${remaining.toFixed(9)} SOL.`),
+        description: tr(`You can add up to ${remainingSol.toFixed(9)} SOL.`, `Можно внести ещё ${remainingSol.toFixed(9)} SOL.`),
       });
       return;
     }
-    if (balance != null && amount + 0.02 > balance) {
-      toast.error(tr('Keep at least 0.02 SOL for network fees', 'Оставьте минимум 0,02 SOL на комиссии сети'));
-      return;
+    if (balance != null) {
+      if (balance <= 0.02) {
+        toast.error(tr('Insufficient wallet balance for network fees', 'Недостаточно SOL в кошельке для оплаты комиссий сети'), {
+          description: tr('Your wallet needs more than 0.02 SOL to pay transaction fees and rent.', 'Для оплаты комиссий сети и аренды требуется более 0,02 SOL.'),
+        });
+        return;
+      }
+      if (amount + 0.02 > balance) {
+        toast.error(tr('Keep at least 0.02 SOL for network fees', 'Оставьте минимум 0,02 SOL на комиссии сети'), {
+          description: tr(`With a balance of ${balance.toFixed(4)} SOL, the maximum deposit is ${(Math.max(0, balance - 0.02)).toFixed(4)} SOL.`, `При балансе ${balance.toFixed(4)} SOL максимальный депозит составляет ${(Math.max(0, balance - 0.02)).toFixed(4)} SOL.`),
+        });
+        return;
+      }
     }
     setWorking('deposit');
     try {
@@ -185,6 +199,12 @@ export default function VaultPage() {
     const amount = Number(withdrawAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
       toast.error(tr('Enter a valid SOL amount', 'Укажите корректную сумму SOL'));
+      return;
+    }
+    if (amount > vaultState.baseBalance) {
+      toast.error(tr('Withdrawal exceeds vault balance', 'Сумма вывода превышает баланс хранилища'), {
+        description: tr(`The vault currently holds ${vaultState.baseBalance.toFixed(9)} SOL.`, `В хранилище сейчас ${vaultState.baseBalance.toFixed(9)} SOL.`),
+      });
       return;
     }
     setWorking('withdraw');
@@ -270,6 +290,51 @@ export default function VaultPage() {
   const maxVaultSol = vaultState ? Number(vaultState.maxPrincipalBase) / 1_000_000_000 : 0;
   const readyForAnalysis = Boolean(vaultState && vaultState.baseBalance > 0 && market);
 
+  // Deposit Max calculation: wallet balance minus 0.02 SOL fee reserve, capped by remaining vault deposit capacity
+  const remainingDepositCapSol = vaultState
+    ? Math.max(0, Number(vaultState.maxPrincipalBase - vaultState.depositedPrincipalBase) / 1_000_000_000)
+    : 0;
+
+  const maxSpendableDepositSol = balance != null ? Math.max(0, balance - 0.02) : 0;
+  const effectiveMaxDepositSol = Math.min(maxSpendableDepositSol, remainingDepositCapSol);
+
+  const handleMaxDeposit = () => {
+    if (!balance || balance <= 0.02) {
+      toast.error(tr('Insufficient wallet balance for network fees', 'Недостаточно SOL в кошельке для оплаты комиссий сети'), {
+        description: tr('Your wallet needs more than 0.02 SOL to pay transaction fees and rent.', 'Для оплаты комиссий сети и аренды требуется более 0,02 SOL.'),
+      });
+      return;
+    }
+    if (remainingDepositCapSol <= 0) {
+      toast.error(tr('Vault deposit capacity reached', 'Лимит пополнения хранилища исчерпан'));
+      return;
+    }
+    // Truncate to 4 decimals to ensure safe representation without floating point overshoot
+    const safeAmount = Math.floor(effectiveMaxDepositSol * 10000) / 10000;
+    if (safeAmount <= 0) {
+      setDepositAmount(effectiveMaxDepositSol.toFixed(6));
+    } else {
+      setDepositAmount(safeAmount.toString());
+    }
+  };
+
+  const handleMaxWithdraw = () => {
+    if (!vaultState || vaultState.baseBalance <= 0) {
+      toast.error(tr('Vault has zero balance to withdraw', 'В хранилище нет средств для вывода'));
+      return;
+    }
+    // Truncate to 4 decimals to avoid rounding above available custody balance
+    const safeAmount = Math.floor(vaultState.baseBalance * 10000) / 10000;
+    if (safeAmount <= 0) {
+      setWithdrawAmount(vaultState.baseBalance.toFixed(6));
+    } else {
+      setWithdrawAmount(safeAmount.toString());
+    }
+  };
+
+  const isDevnet = network === 'devnet';
+  const hasLowBalance = address && balance != null && balance <= 0.02;
+
   return (
     <div className="p-4 md:p-8 space-y-8">
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -277,10 +342,70 @@ export default function VaultPage() {
           <h1 className="text-2xl font-bold text-text-primary">{tr('Devnet Vault workflow', 'Работа с Devnet-хранилищем')}</h1>
           <p className="text-text-secondary mt-1">{tr('Create a real on-chain vault, deposit test SOL, and run the guarded AI analysis.', 'Создайте настоящее ончейн-хранилище, внесите тестовые SOL и запустите защищённый ИИ-анализ.')}</p>
         </div>
-        <Button variant="outline" size="sm" className="gap-2" disabled={working === 'refresh'} onClick={() => void refresh()}>
-          <RefreshCw size={14} className={working === 'refresh' ? 'animate-spin' : ''} /> {tr('Refresh', 'Обновить')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {isDevnet && (
+            <a
+              href="https://faucet.solana.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-xs font-semibold bg-accent-dim text-accent border border-accent-border hover:bg-accent/20 transition-colors"
+            >
+              <Coins size={14} />
+              {tr('Get Devnet SOL', 'Получить Devnet SOL')}
+              <ExternalLink size={12} />
+            </a>
+          )}
+          <Button variant="outline" size="sm" className="gap-2" disabled={working === 'refresh'} onClick={() => void refresh()}>
+            <RefreshCw size={14} className={working === 'refresh' ? 'animate-spin' : ''} /> {tr('Refresh', 'Обновить')}
+          </Button>
+        </div>
       </header>
+
+      {/* Devnet Faucet / Low Balance Helper */}
+      {isDevnet && (
+        <Card className="p-4 border-accent/30 bg-accent/5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <Sparkles size={18} className="text-accent shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <div className="text-sm font-semibold text-text-primary flex items-center gap-2">
+                  {tr('Solana Devnet Faucet Helper', 'Помощник крана Solana Devnet')}
+                  {hasLowBalance && (
+                    <Badge variant="warning">{tr('Low SOL for fees', 'Мало SOL на комиссии')}</Badge>
+                  )}
+                </div>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  {tr(
+                    'Need test tokens for deposits or gas? Devnet SOL is free testnet currency with no monetary value. Request funds from the official Solana faucet to fund your wallet.',
+                    'Нужны тестовые токены для депозита или комиссий? Devnet SOL — бесплатная валюта без реальной стоимости. Запросите токены на официальном кране Solana для пополнения кошелька.'
+                  )}
+                </p>
+                {balance != null && (
+                  <p className="text-xs text-text-muted">
+                    {tr('Current wallet balance:', 'Текущий баланс кошелька:')}{' '}
+                    <span className="font-mono text-text-primary font-bold">{balance.toFixed(4)} SOL</span>
+                    {hasLowBalance && (
+                      <span className="text-warning ml-2">
+                        ({tr('Keep ≥ 0.02 SOL reserved for transaction fees', 'Оставьте ≥ 0,02 SOL в резерве на комиссии сети')})
+                      </span>
+                    )}
+                  </p>
+                )}
+              </div>
+            </div>
+            <a
+              href="https://faucet.solana.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-accent text-bg-base hover:brightness-110 transition-all shrink-0"
+            >
+              <Coins size={14} />
+              {tr('Open Devnet Faucet', 'Открыть кран Devnet')}
+              <ExternalLink size={13} />
+            </a>
+          </div>
+        </Card>
+      )}
 
       <Link to="/autopilot" className="block rounded-xl border border-accent/30 bg-accent/5 p-4 text-sm text-accent">
         {tr('Try Autopilot → Automatic virtual trading, portfolio results and a cycle-by-cycle log. Your Devnet vault stays separate.', 'Попробуйте автопилот → Автоматические виртуальные сделки, результат портфеля и журнал циклов. Devnet-хранилище учитывается отдельно.')}
@@ -365,19 +490,85 @@ export default function VaultPage() {
             <InfoBox label={tr('Vault balance', 'Баланс Vault')} value={`${vaultState?.baseBalance.toFixed(4) ?? '0.0000'} SOL`} />
             <InfoBox label={tr('On-chain maximum', 'Ончейн-максимум')} value={`${maxVaultSol.toFixed(4)} SOL`} />
           </div>
+
+          {/* Deposit section with Max control */}
           <label className="block space-y-2">
-            <span className="text-xs font-semibold text-text-secondary">{tr('Amount to deposit', 'Сумма пополнения')}</span>
-            <div className="flex gap-2">
-              <input type="number" min="0.001" step="0.01" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} className="h-10 min-w-0 flex-1 rounded-md border border-border-default bg-bg-base px-3 font-mono text-sm focus:border-accent focus:outline-none" />
-              <Button disabled={!vaultState || vaultState.paused || working !== null} onClick={() => void deposit()}>{working === 'deposit' ? tr('Depositing…', 'Пополнение…') : tr('Deposit SOL', 'Внести SOL')}</Button>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-text-secondary">{tr('Amount to deposit', 'Сумма пополнения')}</span>
+              {balance != null && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-text-muted font-mono">
+                    {tr('Spendable:', 'Доступно:')} {Math.max(0, balance - 0.02).toFixed(4)} SOL
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleMaxDeposit}
+                    disabled={!vaultState || vaultState.paused || working !== null || balance <= 0.02}
+                    className="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 disabled:opacity-40 transition-colors"
+                  >
+                    {tr('Max', 'Макс')}
+                  </button>
+                </div>
+              )}
             </div>
-            {vaultState && <p className="text-xs text-text-muted">{tr('Remaining deposit capacity:', 'Можно внести ещё:')} {Math.max(0, Number(vaultState.maxPrincipalBase - vaultState.depositedPrincipalBase) / 1_000_000_000).toLocaleString(locale, { maximumFractionDigits: 9 })} SOL</p>}
-          </label>
-          <label className="block space-y-2 border-t border-border-subtle pt-5">
-            <span className="text-xs font-semibold text-text-secondary">{tr('Amount to withdraw', 'Сумма вывода')}</span>
             <div className="flex gap-2">
-              <input type="number" min="0.001" step="0.01" value={withdrawAmount} onChange={(event) => setWithdrawAmount(event.target.value)} className="h-10 min-w-0 flex-1 rounded-md border border-border-default bg-bg-base px-3 font-mono text-sm focus:border-accent focus:outline-none" />
-              <Button variant="outline" disabled={!vaultState?.baseBalance || working !== null} onClick={() => void withdraw()}>{working === 'withdraw' ? tr('Withdrawing…', 'Вывод…') : tr('Withdraw', 'Вывести')}</Button>
+              <div className="relative flex-1">
+                <input
+                  type="number"
+                  min="0.001"
+                  step="0.01"
+                  value={depositAmount}
+                  onChange={(event) => setDepositAmount(event.target.value)}
+                  className="h-10 w-full rounded-md border border-border-default bg-bg-base px-3 pr-14 font-mono text-sm focus:border-accent focus:outline-none"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-text-muted">SOL</span>
+              </div>
+              <Button disabled={!vaultState || vaultState.paused || working !== null} onClick={() => void deposit()}>
+                {working === 'deposit' ? tr('Depositing…', 'Пополнение…') : tr('Deposit SOL', 'Внести SOL')}
+              </Button>
+            </div>
+            {vaultState && (
+              <p className="text-xs text-text-muted">
+                {tr('Remaining deposit capacity:', 'Можно внести ещё:')} {remainingDepositCapSol.toLocaleString(locale, { maximumFractionDigits: 9 })} SOL · {tr('0.02 SOL fee reserve maintained', 'Резерв 0,02 SOL на комиссии сохранён')}
+              </p>
+            )}
+          </label>
+
+          {/* Withdraw section with Max control */}
+          <label className="block space-y-2 border-t border-border-subtle pt-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-text-secondary">{tr('Amount to withdraw', 'Сумма вывода')}</span>
+              {vaultState && vaultState.baseBalance > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-text-muted font-mono">
+                    {tr('Vault holdings:', 'В хранилище:')} {vaultState.baseBalance.toFixed(4)} SOL
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleMaxWithdraw}
+                    disabled={!vaultState?.baseBalance || working !== null}
+                    className="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 disabled:opacity-40 transition-colors"
+                  >
+                    {tr('Max', 'Макс')}
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <input
+                  type="number"
+                  min="0.001"
+                  step="0.01"
+                  value={withdrawAmount}
+                  onChange={(event) => setWithdrawAmount(event.target.value)}
+                  className="h-10 w-full rounded-md border border-border-default bg-bg-base px-3 pr-14 font-mono text-sm focus:border-accent focus:outline-none"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-text-muted">SOL</span>
+              </div>
+              <Button variant="outline" disabled={!vaultState?.baseBalance || working !== null} onClick={() => void withdraw()}>
+                {working === 'withdraw' ? tr('Withdrawing…', 'Вывод…') : tr('Withdraw', 'Вывести')}
+              </Button>
             </div>
           </label>
           <p className="text-xs leading-relaxed text-text-muted">{tr('SOL is wrapped into WSOL for the deposit and automatically unwrapped on withdrawal. Phantom signs every transaction.', 'При пополнении SOL автоматически оборачивается в WSOL, а при выводе разворачивается обратно. Каждую транзакцию подписывает Phantom.')}</p>

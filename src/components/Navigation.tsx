@@ -16,7 +16,8 @@ import {
   Copy,
   ExternalLink,
   LogOut,
-  Cpu
+  Cpu,
+  ShieldCheck
 } from 'lucide-react';
 import { cn, truncateAddress } from '../lib/utils';
 import { Button } from './UI';
@@ -41,6 +42,7 @@ export const TopNav = () => {
     { name: tr('Dashboard', 'Панель'), path: '/dashboard' },
     { name: tr('Autopilot', 'Автопилот'), path: '/autopilot' },
     { name: tr('Vault', 'Хранилище'), path: '/vault' },
+    { name: tr('Screener', 'Скринер'), path: '/screener' },
     { name: tr('Decisions', 'Решения'), path: '/decisions' },
     { name: tr('Docs', 'Документация'), path: '/docs' },
   ];
@@ -199,6 +201,7 @@ export const Sidebar = () => {
       items: [
         { name: tr('Autopilot · virtual', 'Автопилот · виртуальный'), path: '/autopilot', icon: Cpu },
         { name: tr('Agent limits', 'Лимиты агента'), path: '/agent-config?section=risk', icon: Settings2 },
+        { name: tr('Shariah screener', 'Shariah-скринер'), path: '/screener', icon: ShieldCheck },
         { name: tr('Decision log', 'Журнал решений'), path: '/decisions', icon: FileText },
       ]
     },
