@@ -131,10 +131,10 @@ export const useStore = create<AppState>()(
       isDemoMode: false,
       setDemoMode: (val) => set((state) => ({ 
         isDemoMode: val,
-        decisions: val && state.decisions.length === 0 ? SAMPLE_DEMO_DECISIONS : state.decisions
+        decisions: val ? (state.decisions.length > 0 ? state.decisions : SAMPLE_DEMO_DECISIONS) : state.decisions
       })),
       resetDemoData: () => set({ decisions: SAMPLE_DEMO_DECISIONS }),
-      decisions: [],
+      decisions: SAMPLE_DEMO_DECISIONS,
       config: DEFAULT_CONFIG,
       updateConfig: (newConfig) => set((state) => ({ config: { ...state.config, ...newConfig } })),
       addDecision: (decision) => set((state) => ({ decisions: [decision, ...state.decisions] })),
@@ -146,7 +146,8 @@ export const useStore = create<AppState>()(
         return {
           ...current,
           ...saved,
-          isDemoMode: false,
+          isDemoMode: saved?.isDemoMode ?? false,
+          decisions: saved?.decisions && saved.decisions.length > 0 ? saved.decisions : SAMPLE_DEMO_DECISIONS,
           config: { ...DEFAULT_CONFIG, ...saved?.config },
         };
       },

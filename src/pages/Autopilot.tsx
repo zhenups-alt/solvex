@@ -9,6 +9,7 @@ import PaperJournal from '../components/PaperJournal';
 import PaperSessionArchive from '../components/PaperSessionArchive';
 import { ApiError, ensureWalletSession, getRiskProfile, hasWalletSession, RiskProfileResponse } from '../lib/solvexApi';
 import { controlPaper, finishPaper, getPaperAccount, getPaperEvents, PaperAccount, PaperEvent, startPaper } from '../lib/paperApi';
+import { useStore } from '../store';
 
 export default function Autopilot() {
   const { address, signMessage, connect } = usePhantom();
@@ -32,10 +33,102 @@ export default function Autopilot() {
   const money = (value: string | number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(Number(value));
   const timestamp = (value: string | null) => value ? new Date(value).toLocaleString(locale) : '—';
 
+  const { isDemoMode } = useStore();
+
   useEffect(() => { setEndVersion(null); }, [address, account?.session_start_version]);
 
   useEffect(() => {
     setAccount(null); setEvents([]); setProfile(null); setError(null); setLoaded(false);
+    
+    if (isDemoMode && !address) {
+      setSignedIn(true);
+      setProfile({
+        id: 'demo-profile-01',
+        wallet_address: 'DEMO_WALLET_SIMULATED',
+        risk_level: 'balanced',
+        investment_cap_usd: '1000',
+        max_single_trade_usd: '100',
+        max_daily_turnover_usd: '300',
+        max_slippage_bps: 50,
+        max_drawdown_pct: '10',
+        enabled: true,
+      });
+      setAccount({
+        mode: 'paper',
+        status: 'running',
+        version: 12,
+        session_start_version: 1,
+        started_at: new Date(Date.now() - 3600000).toISOString(),
+        next_run_at: new Date(Date.now() + 45000).toISOString(),
+        strategy: 'allocation_v1',
+        live_execution_allowed: false,
+        state: {
+          profile: {
+            id: 'demo-profile-01',
+            wallet_address: 'DEMO_WALLET_SIMULATED',
+            risk_level: 'balanced',
+            investment_cap_usd: '1000',
+            max_single_trade_usd: '100',
+            max_daily_turnover_usd: '300',
+            max_slippage_bps: 50,
+            max_drawdown_pct: '10',
+            enabled: true,
+          },
+          initial_usd: '100.00',
+          cash_usd: '51.40',
+          sol_quantity: '0.245000',
+          fees_usd: '0.12',
+          daily_turnover_usd: '48.60',
+          interval_seconds: 300,
+          last_price_usd: '201.50',
+          last_mark_at: new Date().toISOString(),
+          last_cycle_at: new Date(Date.now() - 120000).toISOString(),
+          cycle_count: 8,
+          trade_count: 2,
+          last_error: null,
+          decision_source: 'gemini',
+        },
+        metrics: {
+          equity_usd: '100.77',
+          total_pnl_usd: '0.77',
+          return_pct: '0.77',
+          realized_pnl_usd: '0.25',
+          unrealized_pnl_usd: '0.52',
+          sol_allocation_pct: '48.98',
+          target_sol_pct: '50.00',
+          drawdown_pct: '0.45',
+        },
+      });
+      setEvents([
+        {
+          id: 'demo-evt-01',
+          version: 12,
+          kind: 'cycle_evaluated',
+          status: 'success',
+          at: new Date(Date.now() - 120000).toISOString(),
+          message: 'Decision source gemini proposed HOLD. Macro volatility within target 1σ band.',
+        },
+        {
+          id: 'demo-evt-02',
+          version: 10,
+          kind: 'trade_fill',
+          status: 'success',
+          at: new Date(Date.now() - 900000).toISOString(),
+          message: 'Simulated buy: +0.12 SOL at $198.40. Target allocation reached.',
+        },
+        {
+          id: 'demo-evt-03',
+          version: 7,
+          kind: 'policy_blocked',
+          status: 'blocked',
+          at: new Date(Date.now() - 2100000).toISOString(),
+          message: 'Policy engine blocked Jupiter Perpetuals: Rule SH-02 leverage prohibited.',
+        },
+      ]);
+      setLoaded(true);
+      return;
+    }
+
     setSignedIn(Boolean(address && hasWalletSession(address)));
     if (!address) return;
     let alive = true;
@@ -46,7 +139,7 @@ export default function Autopilot() {
       if (alive && !(failure instanceof ApiError && failure.status === 404)) setError(failure.message);
     });
     return () => { alive = false; };
-  }, [address]);
+  }, [address, isDemoMode]);
 
   useEffect(() => {
     if (!address || !signedIn) return;
@@ -145,8 +238,8 @@ export default function Autopilot() {
 
       {error && <div role="alert" className="rounded-xl border border-negative/30 p-4 text-sm text-negative flex flex-wrap gap-3 justify-between"><span>{error}</span><button className="underline" onClick={() => setRefreshKey((key) => key + 1)}>{tr('Retry', 'Повторить')}</button></div>}
 
-      {!address ? <Card className="p-8 space-y-4"><h2 className="font-semibold">{tr('Connect your wallet to begin', 'Подключите кошелёк для начала')}</h2><p className="text-sm text-text-secondary">{tr('No deposit is needed for the virtual portfolio.', 'Для виртуального портфеля депозит не нужен.')}</p><Button onClick={() => void connect()}>{tr('Connect Phantom', 'Подключить Phantom')}</Button></Card>
-      : !signedIn ? <Card className="p-8 space-y-4"><h2 className="font-semibold">{tr('Verify wallet ownership', 'Подтвердите владение кошельком')}</h2><p className="text-sm text-text-secondary">{tr('Sign a free sign-in message in Phantom. It lets you manage your agent and does not transfer funds.', 'Подпишите бесплатное сообщение входа в Phantom. Оно даёт доступ к управлению агентом и не переводит средства.')}</p><Button disabled={busy} onClick={() => void act(async () => {})}>{busy ? tr('Waiting for signature…', 'Ожидаем подпись…') : tr('Sign in with Phantom', 'Войти через Phantom')}</Button></Card>
+      {(!address && !isDemoMode) ? <Card className="p-8 space-y-4"><h2 className="font-semibold">{tr('Connect your wallet to begin', 'Подключите кошелёк для начала')}</h2><p className="text-sm text-text-secondary">{tr('No deposit is needed for the virtual portfolio.', 'Для виртуального портфеля депозит не нужен.')}</p><Button onClick={() => void connect()}>{tr('Connect Phantom', 'Подключить Phantom')}</Button></Card>
+      : (!signedIn && !isDemoMode) ? <Card className="p-8 space-y-4"><h2 className="font-semibold">{tr('Verify wallet ownership', 'Подтвердите владение кошельком')}</h2><p className="text-sm text-text-secondary">{tr('Sign a free sign-in message in Phantom. It lets you manage your agent and does not transfer funds.', 'Подпишите бесплатное сообщение входа в Phantom. Оно даёт доступ к управлению агентом и не переводит средства.')}</p><Button disabled={busy} onClick={() => void act(async () => {})}>{busy ? tr('Waiting for signature…', 'Ожидаем подпись…') : tr('Sign in with Phantom', 'Войти через Phantom')}</Button></Card>
       : !loaded ? <div className="p-8 flex items-center gap-3 text-text-secondary"><LoaderCircle className="animate-spin" size={18} />{tr('Loading portfolio…', 'Загрузка портфеля…')}</div>
       : !account ? <Card className="p-6 space-y-5">
         <h2 className="font-semibold text-lg">{tr('Start a virtual portfolio', 'Запустить виртуальный портфель')}</h2>

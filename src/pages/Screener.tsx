@@ -107,6 +107,8 @@ export default function ScreenerPage() {
       .catch(() => {
         // Keeps fallback catalog cleanly
       });
+    // Automatically screen SOL on load so the result is immediately visible
+    void handleScreen('asset', 'SOL');
   }, []);
 
   const handleScreen = async (type: 'asset' | 'protocol', identifier: string) => {
@@ -239,7 +241,10 @@ export default function ScreenerPage() {
             <Button
               variant="outline"
               size="sm"
-              className="gap-2 bg-white/5 border-white/10 hover:border-positive/50 hover:bg-positive/5"
+              className={cn(
+                "gap-2 bg-white/5 border-white/10 hover:border-positive/50 hover:bg-positive/5 transition-all",
+                activeResult?.identifier === 'SOL' && "border-positive bg-positive/10 ring-1 ring-positive shadow-sm"
+              )}
               onClick={() => {
                 setSubjectType('asset');
                 setInputVal('SOL');
@@ -252,7 +257,10 @@ export default function ScreenerPage() {
             <Button
               variant="outline"
               size="sm"
-              className="gap-2 bg-white/5 border-white/10 hover:border-warning/50 hover:bg-warning/5"
+              className={cn(
+                "gap-2 bg-white/5 border-white/10 hover:border-warning/50 hover:bg-warning/5 transition-all",
+                activeResult?.identifier === 'USDC' && "border-warning bg-warning/10 ring-1 ring-warning shadow-sm"
+              )}
               onClick={() => {
                 setSubjectType('asset');
                 setInputVal('USDC');
@@ -265,7 +273,10 @@ export default function ScreenerPage() {
             <Button
               variant="outline"
               size="sm"
-              className="gap-2 bg-white/5 border-white/10 hover:border-negative/50 hover:bg-negative/5"
+              className={cn(
+                "gap-2 bg-white/5 border-white/10 hover:border-negative/50 hover:bg-negative/5 transition-all",
+                activeResult?.identifier === 'jupiter_perpetuals' && "border-negative bg-negative/10 ring-1 ring-negative shadow-sm"
+              )}
               onClick={() => {
                 setSubjectType('protocol');
                 setInputVal('jupiter_perpetuals');
@@ -278,7 +289,10 @@ export default function ScreenerPage() {
             <Button
               variant="outline"
               size="sm"
-              className="gap-2 bg-white/5 border-white/10 hover:border-positive/50 hover:bg-positive/5"
+              className={cn(
+                "gap-2 bg-white/5 border-white/10 hover:border-positive/50 hover:bg-positive/5 transition-all",
+                activeResult?.identifier === 'orca_whirlpool_spot' && "border-positive bg-positive/10 ring-1 ring-positive shadow-sm"
+              )}
               onClick={() => {
                 setSubjectType('protocol');
                 setInputVal('orca_whirlpool_spot');
@@ -291,7 +305,10 @@ export default function ScreenerPage() {
             <Button
               variant="outline"
               size="sm"
-              className="gap-2 bg-white/5 border-white/10 hover:border-warning/50 hover:bg-warning/5"
+              className={cn(
+                "gap-2 bg-white/5 border-white/10 hover:border-warning/50 hover:bg-warning/5 transition-all",
+                activeResult?.identifier === 'So11111111111111111111111111111111111111112' && "border-warning bg-warning/10 ring-1 ring-warning shadow-sm"
+              )}
               onClick={() => {
                 const mint = 'So11111111111111111111111111111111111111112';
                 setSubjectType('asset');

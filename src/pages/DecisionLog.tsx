@@ -43,7 +43,8 @@ export default function DecisionLogPage() {
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
-    if (isDemoMode && !address) {
+    if (!address) {
+      // If no wallet connected, display sample simulated decisions for review/evaluation
       setItems(
         demoDecisions.map((d) => ({
           id: d.id,
@@ -84,11 +85,6 @@ export default function DecisionLogPage() {
           created_at: d.timestamp,
         }))
       );
-      return;
-    }
-
-    if (!address) {
-      setItems([]);
       return;
     }
     setLoading(true);
@@ -192,10 +188,14 @@ export default function DecisionLogPage() {
         </div>
       </Card>
 
-      {!address && !isDemoMode && <Card className="p-8 text-center text-sm text-text-secondary">{tr('Connect Phantom to load the decision log bound to your wallet.', 'Подключите Phantom, чтобы загрузить журнал решений вашего кошелька.')}</Card>}
+      {!address && (
+        <Card className="p-4 border-amber-500/30 bg-amber-500/10 text-xs text-amber-200 flex items-center justify-between">
+          <span>{tr('Viewing simulated demo decisions (no wallet required). Connect Phantom to inspect your personal on-chain audit trail.', 'Отображаются примеры симулированных решений (без кошелька). Подключите Phantom для просмотра персонального журнала.')}</span>
+        </Card>
+      )}
       {error && <Card className="p-6 border-negative/40 text-sm text-negative">{error}</Card>}
 
-      {(address || isDemoMode) && !error && (
+      {!error && (
         <Card className="p-0 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
